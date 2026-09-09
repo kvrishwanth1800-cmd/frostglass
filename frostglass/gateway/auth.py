@@ -46,4 +46,12 @@ def default_key_store() -> VirtualKeyStore:
         "fg-live-test-key",
         Principal("test-user", "test-team", frozenset({"*"}), 100_000, 60),
     )
+    store.register(
+        "fg-live-budget-key",
+        Principal("budget-user", "budget-team", frozenset({"*"}), 0, 60),
+    )
+    store.register(
+        "fg-live-rate-key",
+        Principal("rate-user", "rate-team", frozenset({"*"}), 100_000, 1),
+    )
     return store
