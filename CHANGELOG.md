@@ -19,3 +19,6 @@ All notable changes to this project are documented in this file.
 - Strict type checking is scoped to the required detection, masking, and policy modules.
 - Dependency audit resolves the declared production dependency set, excluding the audit tool's own environment.
 - Runtime dependencies can resolve patched compatible releases during security audits.
+
+### Changed
+- Started M1 pass-through gateway implementation.
