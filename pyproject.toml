@@ -8,9 +8,9 @@ version = "0.0.1"
 description = "Self-hosted AI gateway and DLP proxy"
 requires-python = ">=3.11"
 dependencies = [
-  "fastapi>=0.115,<0.116",
-  "pydantic-settings>=2.6,<3",
-  "uvicorn[standard]>=0.32,<0.33",
+  "fastapi>=0.115",
+  "pydantic-settings>=2.6",
+  "uvicorn[standard]>=0.32",
 ]
 
 [project.optional-dependencies]
