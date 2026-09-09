@@ -15,5 +15,5 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip pip-audit
-      - run: pip-audit -r <(python -c "import tomllib; print('\\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
-        shell: bash
+      - run: python -m pip install .
+      - run: pip-audit

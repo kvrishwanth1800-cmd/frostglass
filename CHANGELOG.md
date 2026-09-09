@@ -16,3 +16,4 @@ All notable changes to this project are documented in this file.
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.
 - Strict type checking is scoped to the required detection, masking, and policy modules.
+- Dependency audit now installs and audits the project runtime environment instead of parsing generated dependency metadata as a requirements file.
