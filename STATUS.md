@@ -20,12 +20,12 @@
 - [x] Docker Compose secret initialization
 - [x] Repository governance and contributor documentation
 - [x] CI, security automation, dashboard build placeholder, and directory tree
-- [ ] Verify checks after typecheck repair and open M0 pull request
+- [ ] Verify repaired typecheck and dependency audit, then review M0 pull request
 
 ## Open decisions / blockers
-- None
+- M0 pull request is open. It requires green checks and the Docs/DX review gate before merge.
 
 ## Notes for the next session
 - Docker Compose creates `.env.local` with random values before the application starts. The application has no development security-validation bypass.
 - CODEOWNERS uses `@kvrishwanth1800-cmd`.
-- Mypy strict mode is intentionally scoped to detection, masking, and policy, as required by Part L.3. Those modules are populated in M2 through M4.
+- Mypy strict mode is intentionally scoped to detection, masking, and policy, as required by Part L.3. Package markers are present so M0 can validate that scope before its implementation milestones.
