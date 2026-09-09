@@ -19,11 +19,13 @@
 - [x] Secure settings validation and `GET /health`
 - [x] Docker Compose secret initialization
 - [x] Repository governance and contributor documentation
-- [ ] CI, branch protection, verification, and M0 pull request
+- [x] CI, security automation, dashboard build placeholder, and directory tree
+- [ ] Verification and M0 pull request
 
 ## Open decisions / blockers
-- None
+- CI has not yet run on the M0 branch.
 
 ## Notes for the next session
 - Docker Compose creates `.env.local` with random values before the application starts. The application has no development security-validation bypass.
 - CODEOWNERS uses `@kvrishwanth1800-cmd`.
+- Detection accuracy automation reserves its required check until the M2 corpus exists.
