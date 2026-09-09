@@ -12,8 +12,9 @@ All notable changes to this project are documented in this file.
 - GitHub Actions quality, security, dependency-audit, and release workflows.
 - Dashboard build foundation and milestone directory tree.
 - Package markers for the strict typecheck modules.
+- A production dependency manifest for the dependency audit.
 
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.
 - Strict type checking is scoped to the required detection, masking, and policy modules.
-- Dependency audit now installs and audits the project runtime environment instead of parsing generated dependency metadata as a requirements file.
+- Dependency audit resolves the declared production dependency set, excluding the audit tool's own environment.

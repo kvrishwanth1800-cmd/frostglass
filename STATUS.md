@@ -29,4 +29,4 @@
 - Docker Compose creates `.env.local` with random values before the application starts. The application has no development security-validation bypass.
 - CODEOWNERS uses `@kvrishwanth1800-cmd`.
 - Mypy strict mode is intentionally scoped to detection, masking, and policy, as required by Part L.3. Package markers are present so M0 can validate that scope before its implementation milestones.
-- The dependency audit installs the project runtime dependencies before auditing the installed environment. This avoids treating generated metadata as a requirements file.
+- The dependency audit resolves only the declared production dependency set in `requirements-audit.txt`. It does not audit the auditing tool and its own dependencies.
