@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from time import monotonic
 
-from frostglass.errors import gateway_error
+from frostglass.errors import GatewayError, gateway_error
 from frostglass.gateway.auth import Principal
 
 
@@ -22,9 +22,7 @@ class Limits:
         while window and window[0] <= now - 60:
             window.popleft()
         if len(window) >= principal.rate_limit_rpm:
-            error = gateway_error(429, "Rate limit exceeded", "rate_limit_exceeded")
-            error.headers = {"Retry-After": "60"}
-            raise error
+            raise GatewayError(429, "Rate limit exceeded", "rate_limit_exceeded", {"Retry-After": "60"})
         window.append(now)
 
     def record_spend(self, principal: Principal, cents: int = 1) -> None:
