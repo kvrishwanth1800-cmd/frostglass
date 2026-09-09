@@ -20,12 +20,12 @@
 - [x] Docker Compose secret initialization
 - [x] Repository governance and contributor documentation
 - [x] CI, security automation, dashboard build placeholder, and directory tree
-- [ ] Verification and M0 pull request
+- [ ] Verify checks after package-discovery repair and open M0 pull request
 
 ## Open decisions / blockers
-- CI has not yet run on the M0 branch.
+- None
 
 ## Notes for the next session
 - Docker Compose creates `.env.local` with random values before the application starts. The application has no development security-validation bypass.
 - CODEOWNERS uses `@kvrishwanth1800-cmd`.
-- Detection accuracy automation reserves its required check until the M2 corpus exists.
+- CI install failed because setuptools detected both the application and dashboard directories. Package discovery now includes `frostglass*` only.

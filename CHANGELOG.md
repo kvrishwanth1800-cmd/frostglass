@@ -11,3 +11,6 @@ All notable changes to this project are documented in this file.
 - Pull request and issue templates.
 - GitHub Actions quality, security, dependency-audit, and release workflows.
 - Dashboard build foundation and milestone directory tree.
+
+### Fixed
+- Python package discovery now excludes the dashboard from backend builds.
