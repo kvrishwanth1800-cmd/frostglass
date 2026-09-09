@@ -1,0 +1,16 @@
+name: Detector request
+description: Request a sensitive-data detector
+title: "detector: "
+labels: [detector]
+body:
+  - type: textarea
+    attributes:
+      label: Entity type and examples
+      description: Use synthetic or public examples only.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected detection behavior
+    validations:
+      required: true

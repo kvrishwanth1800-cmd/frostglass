@@ -18,11 +18,12 @@
 ## M0 task state
 - [x] Secure settings validation and `GET /health`
 - [x] Docker Compose secret initialization
-- [ ] Repository governance, documentation, and CI
-- [ ] Verification and M0 pull request
+- [x] Repository governance and contributor documentation
+- [ ] CI, branch protection, verification, and M0 pull request
 
 ## Open decisions / blockers
 - None
 
 ## Notes for the next session
 - Docker Compose creates `.env.local` with random values before the application starts. The application has no development security-validation bypass.
+- CODEOWNERS uses `@kvrishwanth1800-cmd`.
