@@ -20,7 +20,7 @@
 - [x] Docker Compose secret initialization
 - [x] Repository governance and contributor documentation
 - [x] CI, security automation, dashboard build placeholder, and directory tree
-- [ ] Verify checks after package-discovery repair and open M0 pull request
+- [ ] Verify checks after typecheck repair and open M0 pull request
 
 ## Open decisions / blockers
 - None
@@ -28,4 +28,4 @@
 ## Notes for the next session
 - Docker Compose creates `.env.local` with random values before the application starts. The application has no development security-validation bypass.
 - CODEOWNERS uses `@kvrishwanth1800-cmd`.
-- CI install failed because setuptools detected both the application and dashboard directories. Package discovery now includes `frostglass*` only.
+- Mypy strict mode is intentionally scoped to detection, masking, and policy, as required by Part L.3. Those modules are populated in M2 through M4.

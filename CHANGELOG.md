@@ -14,3 +14,4 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.
+- Strict type checking is scoped to the required detection, masking, and policy modules.

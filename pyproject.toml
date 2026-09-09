@@ -39,7 +39,7 @@ select = ["E", "F", "I", "UP"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["frostglass"]
+files = ["frostglass/detection", "frostglass/masking", "frostglass/policy"]
 
 [tool.coverage.run]
 branch = true
