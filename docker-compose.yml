@@ -1,0 +1,47 @@
+services:
+  init-secrets:
+    build: .
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    command:
+      - python
+      - -c
+      - |
+        import base64, pathlib, secrets
+        target = pathlib.Path('/workspace/.env.local')
+        if not target.exists():
+            target.write_text(
+                'FG_VAULT_ENCRYPTION_KEY=' + base64.b64encode(secrets.token_bytes(32)).decode() + '\n'
+                + 'FG_TENANT_SALT=' + secrets.token_urlsafe(32) + '\n'
+            )
+  app:
+    build: .
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    depends_on:
+      init-secrets:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    command:
+      - /bin/sh
+      - -c
+      - . /workspace/.env.local && export FG_VAULT_ENCRYPTION_KEY FG_TENANT_SALT && exec uvicorn frostglass.main:app --host 0.0.0.0 --port 8000
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: frostglass
+      POSTGRES_USER: frostglass
+      POSTGRES_PASSWORD: frostglass
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
