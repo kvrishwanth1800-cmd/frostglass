@@ -49,12 +49,8 @@ def test_ac_m1_02_anthropic_compatible_non_streaming() -> None:
 
 def test_ac_m1_03_streaming_matches_non_streaming() -> None:
     test_client = client()
-    non_streamed = test_client.post(
-        "/v1/chat/completions", headers=KEY, json=chat_payload()
-    ).json()
-    streamed = test_client.post(
-        "/v1/chat/completions", headers=KEY, json=chat_payload(stream=True)
-    )
+    non_streamed = test_client.post("/v1/chat/completions", headers=KEY, json=chat_payload()).json()
+    streamed = test_client.post("/v1/chat/completions", headers=KEY, json=chat_payload(stream=True))
     assert streamed.status_code == 200
     assert "mock response" in streamed.text
     assert "[DONE]" in streamed.text
@@ -104,12 +100,13 @@ def test_ac_m1_05_budget_and_rate_limit_errors() -> None:
     )
     assert budget.status_code == 402
     rate_headers = {"Authorization": "Bearer fg-live-rate-key"}
-    assert test_client.post(
-        "/v1/chat/completions", headers=rate_headers, json=chat_payload()
-    ).status_code == 200
-    limited = test_client.post(
-        "/v1/chat/completions", headers=rate_headers, json=chat_payload()
+    assert (
+        test_client.post(
+            "/v1/chat/completions", headers=rate_headers, json=chat_payload()
+        ).status_code
+        == 200
     )
+    limited = test_client.post("/v1/chat/completions", headers=rate_headers, json=chat_payload())
     assert limited.status_code == 429
     assert limited.headers["retry-after"] == "60"
 

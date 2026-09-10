@@ -47,7 +47,7 @@ class MockProvider:
                 "delta": {"type": "text_delta", "text": "mock response"},
             }
             yield "event: content_block_delta\ndata: " + json.dumps(event) + "\n\n"
-            yield "event: message_stop\ndata: {\"type\": \"message_stop\"}\n\n"
+            yield 'event: message_stop\ndata: {"type": "message_stop"}\n\n'
         else:
             chunk = {
                 "id": result["id"],
