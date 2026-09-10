@@ -18,8 +18,10 @@ router = APIRouter()
 
 
 def configure(key_store: VirtualKeyStore, limits: Limits, providers: ProviderRegistry) -> None:
-    @router.post("/v1/messages")
-    async def messages(request: Request, x_api_key: str | None = Header(default=None, alias="x-api-key")) -> JSONResponse | StreamingResponse:
+    @router.post("/v1/messages", response_model=None)
+    async def messages(
+        request: Request, x_api_key: str | None = Header(default=None, alias="x-api-key")
+    ) -> JSONResponse | StreamingResponse:
         payload: Any = await request.json()
         if not isinstance(payload, dict):
             raise gateway_error(400, "Request body must be an object", "invalid_request_error")
@@ -35,7 +37,14 @@ def configure(key_store: VirtualKeyStore, limits: Limits, providers: ProviderReg
                     yield event
 
             limits.record_spend(principal)
-            return StreamingResponse(events(), media_type="text/event-stream", headers=_headers(request_id, fallback_used, principal.shadow_mode))
+            return StreamingResponse(
+                events(),
+                media_type="text/event-stream",
+                headers=_headers(request_id, fallback_used, principal.shadow_mode),
+            )
         result = await providers.complete("anthropic", payload)
         limits.record_spend(principal)
-        return JSONResponse(result.payload, headers=_headers(request_id, result.fallback_used, principal.shadow_mode))
+        return JSONResponse(
+            result.payload,
+            headers=_headers(request_id, result.fallback_used, principal.shadow_mode),
+        )

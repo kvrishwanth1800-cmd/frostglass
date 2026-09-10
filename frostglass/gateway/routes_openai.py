@@ -18,7 +18,13 @@ router = APIRouter()
 
 def _headers(request_id: str, fallback_used: bool, shadow: bool) -> dict[str, str]:
     action = "shadow" if shadow else "allowed"
-    return {"X-Frostglass-Request-Id": request_id, "X-Frostglass-Action": action, "X-Frostglass-Entities": "[]", "X-Frostglass-Policy-Version": "m1", "X-Frostglass-Fallback-Used": str(fallback_used).lower()}
+    return {
+        "X-Frostglass-Request-Id": request_id,
+        "X-Frostglass-Action": action,
+        "X-Frostglass-Entities": "[]",
+        "X-Frostglass-Policy-Version": "m1",
+        "X-Frostglass-Fallback-Used": str(fallback_used).lower(),
+    }
 
 
 def _validate_model(payload: dict[str, Any], allowed_models: frozenset[str]) -> None:
@@ -30,7 +36,9 @@ def _validate_model(payload: dict[str, Any], allowed_models: frozenset[str]) -> 
 
 
 def configure(key_store: VirtualKeyStore, limits: Limits, providers: ProviderRegistry) -> None:
-    async def handle(payload: dict[str, Any], authorization: str | None, request: Request) -> JSONResponse | StreamingResponse:
+    async def handle(
+        payload: dict[str, Any], authorization: str | None, request: Request
+    ) -> JSONResponse | StreamingResponse:
         principal = key_store.resolve(authorization)
         _validate_model(payload, principal.allowed_models)
         limits.check(principal)
@@ -43,20 +51,31 @@ def configure(key_store: VirtualKeyStore, limits: Limits, providers: ProviderReg
                     yield event
 
             limits.record_spend(principal)
-            return StreamingResponse(events(), media_type="text/event-stream", headers=_headers(request_id, fallback_used, principal.shadow_mode))
+            return StreamingResponse(
+                events(),
+                media_type="text/event-stream",
+                headers=_headers(request_id, fallback_used, principal.shadow_mode),
+            )
         result = await providers.complete("openai", payload)
         limits.record_spend(principal)
-        return JSONResponse(result.payload, headers=_headers(request_id, result.fallback_used, principal.shadow_mode))
+        return JSONResponse(
+            result.payload,
+            headers=_headers(request_id, result.fallback_used, principal.shadow_mode),
+        )
 
-    @router.post("/v1/chat/completions")
-    async def chat_completions(request: Request, authorization: str | None = Header(default=None)) -> JSONResponse | StreamingResponse:
+    @router.post("/v1/chat/completions", response_model=None)
+    async def chat_completions(
+        request: Request, authorization: str | None = Header(default=None)
+    ) -> JSONResponse | StreamingResponse:
         payload = await request.json()
         if not isinstance(payload, dict):
             raise gateway_error(400, "Request body must be an object", "invalid_request_error")
         return await handle(payload, authorization, request)
 
-    @router.post("/v1/embeddings")
-    async def embeddings(request: Request, authorization: str | None = Header(default=None)) -> JSONResponse | StreamingResponse:
+    @router.post("/v1/embeddings", response_model=None)
+    async def embeddings(
+        request: Request, authorization: str | None = Header(default=None)
+    ) -> JSONResponse | StreamingResponse:
         payload = await request.json()
         if not isinstance(payload, dict):
             raise gateway_error(400, "Request body must be an object", "invalid_request_error")
