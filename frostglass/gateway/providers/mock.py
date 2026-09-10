@@ -93,7 +93,8 @@ class MockProvider:
                 "delta": {"type": "text_delta", "text": "mock response"},
             }
             yield "event: content_block_delta\ndata: " + json.dumps(event) + "\n\n"
-            yield "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n"
+            stop = {"type": "content_block_stop", "index": 0}
+            yield "event: content_block_stop\ndata: " + json.dumps(stop) + "\n\n"
             yield (
                 "event: message_delta\ndata: "
                 '{"type":"message_delta","delta":{"stop_reason":"end_turn",'
