@@ -21,4 +21,4 @@ All notable changes to this project are documented in this file.
 - Runtime dependencies can resolve patched compatible releases during security audits.
 
 ### Changed
-- Started M1 pass-through gateway implementation.
+- Started M2 detection engine implementation.
