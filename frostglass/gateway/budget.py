@@ -22,7 +22,12 @@ class Limits:
         while window and window[0] <= now - 60:
             window.popleft()
         if len(window) >= principal.rate_limit_rpm:
-            raise GatewayError(429, "Rate limit exceeded", "rate_limit_exceeded", {"Retry-After": "60"})
+            raise GatewayError(
+                429,
+                "Rate limit exceeded",
+                "rate_limit_exceeded",
+                {"Retry-After": "60"},
+            )
         window.append(now)
 
     def record_spend(self, principal: Principal, cents: int = 1) -> None:

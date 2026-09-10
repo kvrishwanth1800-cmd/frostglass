@@ -6,7 +6,13 @@ from __future__ import annotations
 class GatewayError(Exception):
     """An error that serializes to the provider-compatible error envelope."""
 
-    def __init__(self, status_code: int, message: str, error_type: str, headers: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        message: str,
+        error_type: str,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.status_code = status_code
         self.body = {"error": {"message": message, "type": error_type, "code": error_type}}
         self.headers = headers or {}

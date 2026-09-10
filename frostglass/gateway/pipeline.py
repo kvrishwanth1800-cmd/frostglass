@@ -24,17 +24,22 @@ class ProviderRegistry:
         self.failing_primary = MockProvider(fail=True)
 
     def _chain(self, model: str) -> list[MockProvider]:
-        return [self.failing_primary, self.fallback] if model.startswith("fallback/") else [self.primary, self.fallback]
+        if model.startswith("fallback/"):
+            return [self.failing_primary, self.fallback]
+        return [self.primary, self.fallback]
 
     async def complete(self, protocol: str, payload: dict[str, Any]) -> ProviderResult:
         for index, provider in enumerate(self._chain(payload["model"])):
             try:
-                return ProviderResult(await provider.complete(protocol, payload), index > 0)
+                response = await provider.complete(protocol, payload)
+                return ProviderResult(response, index > 0)
             except (TimeoutError, OSError):
                 continue
         raise TimeoutError("all providers failed")
 
-    async def stream(self, protocol: str, payload: dict[str, Any]) -> tuple[AsyncIterator[str], bool]:
+    async def stream(
+        self, protocol: str, payload: dict[str, Any]
+    ) -> tuple[AsyncIterator[str], bool]:
         for index, provider in enumerate(self._chain(payload["model"])):
             try:
                 iterator = provider.stream(protocol, payload)
