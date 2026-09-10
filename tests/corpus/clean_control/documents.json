@@ -1,0 +1,4 @@
+[
+  {"id": "clean-summary", "text": "The deployment completed successfully at noon.", "expected": []},
+  {"id": "clean-digest", "text": "Checksum aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa is expected.", "expected": []}
+]

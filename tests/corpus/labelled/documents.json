@@ -1,0 +1,36 @@
+[
+  {
+    "id": "structured-contact",
+    "text": "Email avery.stone@example.test or call +1 415 555 2671.",
+    "expected": [
+      {"entity_type": "EMAIL_ADDRESS", "value": "avery.stone@example.test"},
+      {"entity_type": "PHONE_NUMBER", "value": "+1 415 555 2671"}
+    ]
+  },
+  {
+    "id": "financial",
+    "text": "Invoice card 4111 1111 1111 1111 and IBAN GB82 WEST 1234 5698 7654 32.",
+    "expected": [
+      {"entity_type": "CREDIT_CARD", "value": "4111 1111 1111 1111"},
+      {"entity_type": "IBAN", "value": "GB82 WEST 1234 5698 7654 32"}
+    ]
+  },
+  {
+    "id": "secrets",
+    "text": "Set AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE before deploy.",
+    "expected": [
+      {"entity_type": "AWS_ACCESS_KEY", "value": "AKIAIOSFODNN7EXAMPLE"}
+    ]
+  },
+  {
+    "id": "dictionary-and-ner",
+    "text": "Avery Stone leads the Orion Initiative at Acme in London.",
+    "expected": [
+      {"entity_type": "CUSTOMER_NAME", "value": "Avery Stone"},
+      {"entity_type": "PROJECT_CODENAME", "value": "Orion Initiative"},
+      {"entity_type": "PERSON", "value": "Avery Stone"},
+      {"entity_type": "ORGANIZATION", "value": "Acme"},
+      {"entity_type": "LOCATION", "value": "London"}
+    ]
+  }
+]

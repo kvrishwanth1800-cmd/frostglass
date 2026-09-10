@@ -22,7 +22,7 @@
 - [x] Presidio and spaCy NER recognition
 - [x] Sorted, disjoint span merging and raw-value-safe findings
 - [ ] Gateway detection lifecycle integration
-- [ ] Synthetic golden corpus and detection scoring harness
+- [x] Synthetic golden corpus and detection scoring harness
 - [ ] spaCy model cache and CI detection accuracy gate
 - [ ] M2 self-check and pull request
 
@@ -30,8 +30,7 @@
 - Branch protection temporarily does not require approvals or CODEOWNERS review because the repository has one owner. Re-enable both controls before outside contributors join.
 
 ## Notes for the next session
-- M2 is active on `m2-detection`. All four detector layers now exist, but only structural, secret, and dictionary layers have local test evidence until CI installs the pinned spaCy model.
-- Dictionary case folding is used only for matching ASCII test terms. Non-ASCII case-fold offset mapping needs explicit coverage before it is relied on for multilingual dictionary entries.
+- M2 is active on `m2-detection`. All four detector layers and a synthetic corpus scorer exist. Corpus adversarial coverage explicitly includes obfuscated email, spaced card, and an embedded-name code identifier.
 - The M1 mock provider is network-free and its OpenAI and Anthropic SSE formats are CI-verified. Keep it as the test upstream for M2. M2 detectors must run against real gateway request and response payload shapes, including streaming payloads.
 - CI must use mock providers only. Never call vendor APIs in tests.
 - Mypy strict mode is scoped to detection, masking, and policy modules. M2 detection modules must pass strict mode.

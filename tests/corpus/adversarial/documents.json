@@ -1,0 +1,19 @@
+[
+  {
+    "id": "obfuscated-email",
+    "text": "Contact j dot smith at acme dot com after the review.",
+    "expected": []
+  },
+  {
+    "id": "spaced-card",
+    "text": "Do not send 4111 1111 1111 1111 in the message.",
+    "expected": [
+      {"entity_type": "CREDIT_CARD", "value": "4111 1111 1111 1111"}
+    ]
+  },
+  {
+    "id": "code-identifier-name",
+    "text": "const avery_stone_customer_id = getCustomer();",
+    "expected": []
+  }
+]
