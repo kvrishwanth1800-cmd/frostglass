@@ -31,7 +31,8 @@
 
 ## Notes for the next session
 - M2 is active on `m2-detection`. All four detector layers and a synthetic corpus scorer exist. Corpus adversarial coverage explicitly includes obfuscated email, spaced card, and an embedded-name code identifier.
-- CI caches the pinned `en_core_web_lg` 3.7.1 wheel by Python version. The detection-accuracy job runs `make eval-detection` and prints the table.
+- `pyahocorasick` is a declared runtime dependency but does not publish typing metadata. Mypy suppresses only its missing-import error.
+- CI caches the pinned `en_core_web_lg` 3.7.1 wheel by Python version. The model URL is one unbroken argument in both test and detection-accuracy jobs.
 - The M1 mock provider is network-free and its OpenAI and Anthropic SSE formats are CI-verified. Keep it as the test upstream for M2. M2 detectors must run against real gateway request and response payload shapes, including streaming payloads.
 - CI must use mock providers only. Never call vendor APIs in tests.
 - Mypy strict mode is scoped to detection, masking, and policy modules. M2 detection modules must pass strict mode.

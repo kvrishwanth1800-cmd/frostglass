@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file.
 - Strict type checking is scoped to the required detection, masking, and policy modules.
 - Dependency audit resolves the declared production dependency set, excluding the audit tool's own environment.
 - Runtime dependencies can resolve patched compatible releases during security audits.
+- spaCy model installation now uses one valid URL and Aho-Corasick has a scoped mypy import override.
 
 ### Changed
 - Started M2 detection engine implementation.

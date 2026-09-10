@@ -47,6 +47,10 @@ python_version = "3.11"
 strict = true
 files = ["frostglass/detection", "frostglass/masking", "frostglass/policy"]
 
+[[tool.mypy.overrides]]
+module = ["ahocorasick"]
+ignore_missing_imports = true
+
 [tool.coverage.run]
 branch = true
 source = ["frostglass"]
