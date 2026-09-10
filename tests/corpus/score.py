@@ -70,7 +70,10 @@ class Evaluation:
 
 def _documents(directory: str | None = None) -> list[dict[str, object]]:
     documents: list[dict[str, object]] = []
-    paths = [_ROOT / directory / "documents.json"] if directory else sorted(_ROOT.glob("*/documents.json"))
+    if directory:
+        paths = [_ROOT / directory / "documents.json"]
+    else:
+        paths = sorted(_ROOT.glob("*/documents.json"))
     for path in paths:
         documents.extend(json.loads(path.read_text(encoding="utf-8")))
     return documents
@@ -87,8 +90,8 @@ def evaluate() -> Evaluation:
     """Return per-entity scores and clean-control false-positive evidence."""
     counts: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
     engine = build_detection_engine()
+    clean_documents = _documents("clean_control")
     clean_false_positives = 0
-    clean_examples = 0
 
     for document in _documents():
         text = document["text"]
@@ -104,14 +107,16 @@ def evaluate() -> Evaluation:
         for entity_type, _ in labels - actual:
             counts[entity_type][2] += 1
 
-        if document in _documents("clean_control"):
-            clean_examples += 1
+        if document in clean_documents:
             clean_false_positives += len(actual)
 
     return Evaluation(
-        scores={entity_type: Score(*values) for entity_type, values in sorted(counts.items())},
+        scores={
+            entity_type: Score(*values)
+            for entity_type, values in sorted(counts.items())
+        },
         clean_false_positives=clean_false_positives,
-        clean_examples=clean_examples,
+        clean_examples=len(clean_documents),
     )
 
 
@@ -135,7 +140,8 @@ def main() -> None:
     print()
     print(
         "Overall precision: "
-        f"{evaluation.overall_precision:.2%} (target >= {_PRECISION_TARGET:.0%}) {precision_result}"
+        f"{evaluation.overall_precision:.2%} (target >= {_PRECISION_TARGET:.0%}) "
+        f"{precision_result}"
     )
     print(
         "Clean-control false-positive rate: "
