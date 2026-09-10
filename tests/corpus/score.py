@@ -65,7 +65,9 @@ class Evaluation:
 
     @property
     def clean_false_positive_rate(self) -> float:
-        return self.clean_false_positives / self.clean_examples if self.clean_examples else 0.0
+        return (
+            self.clean_false_positives / self.clean_examples if self.clean_examples else 0.0
+        )
 
 
 def _documents(directory: str | None = None) -> list[dict[str, object]]:
