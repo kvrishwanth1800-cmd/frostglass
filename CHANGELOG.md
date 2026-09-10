@@ -19,6 +19,8 @@ All notable changes to this project are documented in this file.
 - Presidio and spaCy named-entity recognition.
 - Synthetic golden corpus and detection scoring harness.
 - Cached spaCy model setup and a CI detection accuracy gate.
+- Gateway lifecycle detection that scans every extracted request text value before provider routing.
+- Mock-provider integration coverage for sensitive system-message and tool-call argument content.
 
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.
