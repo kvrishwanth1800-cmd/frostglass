@@ -35,9 +35,7 @@ def test_detection_finds_message_and_tool_call_content_before_mock_provider() ->
         ],
     }
 
-    response = TestClient(create_app()).post(
-        "/v1/chat/completions", headers=_KEY, json=payload
-    )
+    response = TestClient(create_app()).post("/v1/chat/completions", headers=_KEY, json=payload)
 
     assert response.status_code == 200
     assert response.json()["choices"][0]["message"]["content"] == "mock response"
