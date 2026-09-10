@@ -27,7 +27,7 @@ _TOKEN = re.compile(r"\b[A-Za-z0-9+/=_-]{24,}\b")
 _UUID = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE
 )
-_HEX_HASH = re.compile(r"^[0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{64}$", re.IGNORECASE)
+_HEX_HASH = re.compile(r"^(?:[0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{64})$", re.IGNORECASE)
 
 
 def shannon_entropy(token: str) -> float:
@@ -37,7 +37,7 @@ def shannon_entropy(token: str) -> float:
 
 
 class SecretDetector:
-    """Recognize known credentials and conservative high-entropy tokens."""
+    """Recognize known credentials and conservative high-entropy secrets."""
 
     def detect(self, text: str, _: DetectionContext) -> Sequence[CandidateSpan]:
         findings: list[CandidateSpan] = []
@@ -50,7 +50,7 @@ class SecretDetector:
                 covered.append((match.start(), match.end()))
         for match in _TOKEN.finditer(text):
             token = match.group()
-            if any(match.start() >= start and match.end() <= end for start, end in covered):
+            if any(match.start() < end and start < match.end() for start, end in covered):
                 continue
             if _UUID.fullmatch(token) or _HEX_HASH.fullmatch(token):
                 continue
