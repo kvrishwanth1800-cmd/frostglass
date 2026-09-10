@@ -100,7 +100,7 @@ class MockProvider:
                 '{"type":"message_delta","delta":{"stop_reason":"end_turn",'
                 '"stop_sequence":null},"usage":{"output_tokens":2}}\n\n'
             )
-            yield "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+            yield 'event: message_stop\ndata: {"type":"message_stop"}\n\n'
             return
         first = {
             "id": result["id"],
