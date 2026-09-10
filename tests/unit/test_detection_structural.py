@@ -16,6 +16,17 @@ def test_structural_detector_validates_cards_and_ibans() -> None:
     assert all(finding.confidence == 0.95 for finding in findings)
 
 
+def test_structural_detector_preserves_spaced_and_dashed_card_spans() -> None:
+    text = "Spaced 4111 1111 1111 1111, dashed 4111-1111-1111-1111."
+    findings = [
+        finding for finding in StructuralDetector().detect(text, CONTEXT) if finding.entity_type == "CREDIT_CARD"
+    ]
+    assert [text[finding.start : finding.end] for finding in findings] == [
+        "4111 1111 1111 1111",
+        "4111-1111-1111-1111",
+    ]
+
+
 def test_structural_detector_rejects_invalid_ip_and_card() -> None:
     text = "Bad 4111 1111 1111 1112 with 999.999.999.999"
     assert StructuralDetector().detect(text, CONTEXT) == []
