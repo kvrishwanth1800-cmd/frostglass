@@ -54,23 +54,39 @@ class StructuralDetector:
         findings: list[CandidateSpan] = []
         for match in _CARD.finditer(text):
             if _luhn(match.group()):
-                findings.append(CandidateSpan("CREDIT_CARD", match.start(), match.end(), 0.95, "structural.luhn", 9))
+                findings.append(
+                    CandidateSpan(
+                        "CREDIT_CARD", match.start(), match.end(), 0.95, "structural.luhn", 9
+                    )
+                )
         for match in _IBAN.finditer(text):
             if _iban_valid(match.group()):
-                findings.append(CandidateSpan("IBAN", match.start(), match.end(), 0.95, "structural.iban", 8))
+                findings.append(
+                    CandidateSpan("IBAN", match.start(), match.end(), 0.95, "structural.iban", 8)
+                )
         for match in _EMAIL.finditer(text):
-            findings.append(CandidateSpan("EMAIL_ADDRESS", match.start(), match.end(), 0.95, "structural.email", 7))
+            findings.append(
+                CandidateSpan(
+                    "EMAIL_ADDRESS", match.start(), match.end(), 0.95, "structural.email", 7
+                )
+            )
         for match in _SSN.finditer(text):
             confidence = 0.95 if _valid_ssn(match.group()) else 0.6
-            findings.append(CandidateSpan("US_SSN", match.start(), match.end(), confidence, "structural.ssn", 8))
+            findings.append(
+                CandidateSpan("US_SSN", match.start(), match.end(), confidence, "structural.ssn", 8)
+            )
         for match in _IP.finditer(text):
             try:
                 ipaddress.ip_address(match.group())
             except ValueError:
                 continue
-            findings.append(CandidateSpan("IP_ADDRESS", match.start(), match.end(), 0.95, "structural.ip", 5))
+            findings.append(
+                CandidateSpan("IP_ADDRESS", match.start(), match.end(), 0.95, "structural.ip", 5)
+            )
         for match in _MAC.finditer(text):
-            findings.append(CandidateSpan("MAC_ADDRESS", match.start(), match.end(), 0.95, "structural.mac", 5))
+            findings.append(
+                CandidateSpan("MAC_ADDRESS", match.start(), match.end(), 0.95, "structural.mac", 5)
+            )
         for match in _PHONE.finditer(text):
             try:
                 parsed = phonenumbers.parse(match.group(), "US")
@@ -78,7 +94,18 @@ class StructuralDetector:
                 continue
             confidence = 0.95 if phonenumbers.is_valid_number(parsed) else 0.6
             if phonenumbers.is_possible_number(parsed):
-                findings.append(CandidateSpan("PHONE_NUMBER", match.start(), match.end(), confidence, "structural.phone", 6))
+                findings.append(
+                    CandidateSpan(
+                        "PHONE_NUMBER",
+                        match.start(),
+                        match.end(),
+                        confidence,
+                        "structural.phone",
+                        6,
+                    )
+                )
         for match in _MONEY.finditer(text):
-            findings.append(CandidateSpan("MONEY", match.start(), match.end(), 0.6, "structural.money", 2))
+            findings.append(
+                CandidateSpan("MONEY", match.start(), match.end(), 0.6, "structural.money", 2)
+            )
         return findings

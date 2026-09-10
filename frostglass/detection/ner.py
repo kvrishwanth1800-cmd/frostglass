@@ -29,10 +29,14 @@ class NerDetector:
                 "models": [{"lang_code": "en", "model_name": model_name}],
             }
         )
-        self._analyzer = AnalyzerEngine(nlp_engine=provider.create_engine(), supported_languages=["en"])
+        self._analyzer = AnalyzerEngine(
+            nlp_engine=provider.create_engine(), supported_languages=["en"]
+        )
 
     def detect(self, text: str, context: DetectionContext) -> Sequence[CandidateSpan]:
-        results = self._analyzer.analyze(text=text, language="en", score_threshold=context.ner_confidence_floor)
+        results = self._analyzer.analyze(
+            text=text, language="en", score_threshold=context.ner_confidence_floor
+        )
         return tuple(
             CandidateSpan(
                 entity_type=_ENTITY_MAP[result.entity_type],
