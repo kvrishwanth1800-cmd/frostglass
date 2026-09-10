@@ -21,7 +21,12 @@ def gateway_url() -> Generator[str, None, None]:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
     server = uvicorn.Server(
-        uvicorn.Config(create_app(), host="127.0.0.1", port=port, log_level="warning")
+        uvicorn.Config(
+            create_app(),
+            host="127.0.0.1",
+            port=port,
+            log_level="warning",
+        )
     )
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -41,14 +46,18 @@ def gateway_url() -> Generator[str, None, None]:
 def test_ac_m1_01_openai_sdk_non_streaming_streaming_and_tools(gateway_url: str) -> None:
     client = openai.OpenAI(api_key="fg-live-test-key", base_url=f"{gateway_url}/v1")
     response = client.chat.completions.create(
-        model="mock-model", messages=[{"role": "user", "content": "Hello"}]
+        model="mock-model",
+        messages=[{"role": "user", "content": "Hello"}],
     )
     assert response.choices[0].message.content == "mock response"
 
     stream = client.chat.completions.create(
-        model="mock-model", messages=[{"role": "user", "content": "Hello"}], stream=True
+        model="mock-model",
+        messages=[{"role": "user", "content": "Hello"}],
+        stream=True,
     )
-    assert "".join(chunk.choices[0].delta.content or "" for chunk in stream) == "mock response"
+    content = "".join(chunk.choices[0].delta.content or "" for chunk in stream)
+    assert content == "mock response"
 
     tools = [{"type": "function", "function": {"name": "lookup", "parameters": {}}}]
     tool_response = client.chat.completions.create(
@@ -62,12 +71,16 @@ def test_ac_m1_01_openai_sdk_non_streaming_streaming_and_tools(gateway_url: str)
 def test_ac_m1_02_anthropic_sdk_non_streaming_streaming_and_tools(gateway_url: str) -> None:
     client = anthropic.Anthropic(api_key="fg-live-test-key", base_url=gateway_url)
     response = client.messages.create(
-        model="mock-model", max_tokens=16, messages=[{"role": "user", "content": "Hello"}]
+        model="mock-model",
+        max_tokens=16,
+        messages=[{"role": "user", "content": "Hello"}],
     )
     assert response.content[0].text == "mock response"
 
     with client.messages.stream(
-        model="mock-model", max_tokens=16, messages=[{"role": "user", "content": "Hello"}]
+        model="mock-model",
+        max_tokens=16,
+        messages=[{"role": "user", "content": "Hello"}],
     ) as stream:
         assert stream.get_final_text() == "mock response"
 
@@ -75,6 +88,11 @@ def test_ac_m1_02_anthropic_sdk_non_streaming_streaming_and_tools(gateway_url: s
         model="mock-model",
         max_tokens=16,
         messages=[{"role": "user", "content": "Look this up"}],
-        tools=[{"name": "lookup", "input_schema": {"type": "object", "properties": {}}}],
+        tools=[
+            {
+                "name": "lookup",
+                "input_schema": {"type": "object", "properties": {}},
+            }
+        ],
     )
     assert tool_response.content[0].name == "lookup"
