@@ -65,9 +65,7 @@ class Evaluation:
 
     @property
     def clean_false_positive_rate(self) -> float:
-        return (
-            self.clean_false_positives / self.clean_examples if self.clean_examples else 0.0
-        )
+        return self.clean_false_positives / self.clean_examples if self.clean_examples else 0.0
 
 
 def _documents(directory: str | None = None) -> list[dict[str, object]]:
@@ -132,9 +130,7 @@ def main() -> None:
         print(f"| {entity_type} | {score.recall:.2%} | >= {target:.0%} | {result} |")
     precision_result = "PASS" if evaluation.overall_precision >= _PRECISION_TARGET else "FAIL"
     false_positive_result = (
-        "PASS"
-        if evaluation.clean_false_positive_rate <= _FALSE_POSITIVE_RATE_TARGET
-        else "FAIL"
+        "PASS" if evaluation.clean_false_positive_rate <= _FALSE_POSITIVE_RATE_TARGET else "FAIL"
     )
     print()
     print(
