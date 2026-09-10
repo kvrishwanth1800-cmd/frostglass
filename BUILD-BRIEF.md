@@ -1113,12 +1113,12 @@ Regex plus validation. Never rely on regex alone where a checksum exists.
 ```python
 @dataclass(frozen=True)
 class Finding:
-    entity_type: str        # "EMAIL_ADDRESS", "CREDIT_CARD", "CUSTOMER_NAME"
+    entity_type: str  # "EMAIL_ADDRESS", "CREDIT_CARD", "CUSTOMER_NAME"
     start: int
     end: int
-    confidence: float       # 0.0–1.0
-    detector: str           # "structural.luhn", "dictionary.customers"
-    value_hash: str         # sha256(value + tenant_salt) — NEVER the raw value
+    confidence: float  # 0.0–1.0
+    detector: str  # "structural.luhn", "dictionary.customers"
+    value_hash: str  # sha256(value + tenant_salt) — NEVER the raw value
 ```
 
 **`Finding` must never carry the raw matched value.** Only offsets (to act on it) and a salted hash (to correlate without storing). This one constraint is what stops the audit log becoming the leak.
@@ -1258,13 +1258,13 @@ rules:
 @dataclass
 class DecisionTraceEntry:
     entity_type: str
-    detector: str            # which layer/recognizer fired
+    detector: str  # which layer/recognizer fired
     confidence: float
     span: tuple[int, int]
     matched_rule_id: str | None
-    action: Literal["allow","pseudonymize","tag","hash","block"]
+    action: Literal["allow", "pseudonymize", "tag", "hash", "block"]
     was_shadow: bool
-    reason: str              # human-readable, shown in the dashboard
+    reason: str  # human-readable, shown in the dashboard
 ```
 
 **Retention** — default 90 days for audit rows, 7 days for captured content. Nightly purge job. Surface retention settings in the dashboard; compliance teams will ask.

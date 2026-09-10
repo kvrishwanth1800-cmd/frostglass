@@ -1,12 +1,12 @@
 # Build Status
 
-**Current milestone:** M0 - Repository foundation
-**Branch:** m0-foundation
+**Current milestone:** M1 - Pass-through gateway
+**Branch:** m1-gateway
 **Last updated:** 2026-09-09
 
 ## Milestone progress
-- [ ] M0 Repository foundation - IN PROGRESS
-- [ ] M1 Pass-through gateway
+- [x] M0 Repository foundation - merged in PR #1
+- [ ] M1 Pass-through gateway - IN PROGRESS
 - [ ] M2 Detection engine
 - [ ] M3 Masking engine
 - [ ] M4 Policy engine + shadow mode
@@ -15,18 +15,21 @@
 - [ ] M7 Detectors, dictionaries, suggestions
 - [ ] M8 Hardening, docs, 1.0 release
 
-## M0 task state
-- [x] Secure settings validation and `GET /health`
-- [x] Docker Compose secret initialization
-- [x] Repository governance and contributor documentation
-- [x] CI, security automation, dashboard build placeholder, and directory tree
-- [ ] Verify repaired dependency audit, then review M0 pull request
+## M1 task state
+- [ ] Gateway routes and upstream response fidelity for OpenAI and Anthropic
+- [ ] End-to-end SSE streaming
+- [ ] Request extraction and replacement for prompts and tool payloads
+- [ ] Virtual-key authentication and principal resolution
+- [ ] Provider registry, fallback chain, and fallback recording
+- [ ] Per-key and per-team budgets and rate limits
+- [ ] Metrics, traces, structured logs, and Frostglass response headers
+- [ ] Mock provider and AC-M1 acceptance tests
+- [ ] M1 self-check and pull request
 
 ## Open decisions / blockers
-- M0 pull request is open. It requires green checks and the Docs/DX review gate before merge.
+- Branch protection temporarily does not require approvals or code-owner review because the repository has one owner. Re-enable both controls before outside contributors join.
 
 ## Notes for the next session
-- Docker Compose creates `.env.local` with random values before the application starts. The application has no development security-validation bypass.
-- CODEOWNERS uses `@kvrishwanth1800-cmd`.
-- Mypy strict mode is intentionally scoped to detection, masking, and policy, as required by Part L.3. Package markers are present so M0 can validate that scope before its implementation milestones.
-- The dependency audit resolves only the declared production dependency set in `requirements-audit.txt`. Runtime dependencies use minimum-version constraints so the audit can resolve patched compatible releases.
+- M0 merged in PR #1. Startup always validates `FG_VAULT_ENCRYPTION_KEY` and `FG_TENANT_SALT`; Docker Compose generates local values in ignored `.env.local`.
+- M1 must preserve OpenAI and Anthropic request, response, error, and SSE behavior. CI must use the mock provider only, never vendor APIs.
+- Mypy strict mode remains scoped to detection, masking, and policy until those implementation milestones begin.
