@@ -19,7 +19,9 @@ def test_structural_detector_validates_cards_and_ibans() -> None:
 def test_structural_detector_preserves_spaced_and_dashed_card_spans() -> None:
     text = "Spaced 4111 1111 1111 1111, dashed 4111-1111-1111-1111."
     findings = [
-        finding for finding in StructuralDetector().detect(text, CONTEXT) if finding.entity_type == "CREDIT_CARD"
+        finding
+        for finding in StructuralDetector().detect(text, CONTEXT)
+        if finding.entity_type == "CREDIT_CARD"
     ]
     assert [text[finding.start : finding.end] for finding in findings] == [
         "4111 1111 1111 1111",
