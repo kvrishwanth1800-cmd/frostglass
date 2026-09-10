@@ -20,7 +20,8 @@ router = APIRouter()
 def configure(key_store: VirtualKeyStore, limits: Limits, providers: ProviderRegistry) -> None:
     @router.post("/v1/messages", response_model=None)
     async def messages(
-        request: Request, x_api_key: str | None = Header(default=None, alias="x-api-key")
+        request: Request,
+        x_api_key: str | None = Header(default=None, alias="x-api-key"),
     ) -> JSONResponse | StreamingResponse:
         payload: Any = await request.json()
         if not isinstance(payload, dict):
