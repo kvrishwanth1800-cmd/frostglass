@@ -111,10 +111,7 @@ def evaluate() -> Evaluation:
             clean_false_positives += len(actual)
 
     return Evaluation(
-        scores={
-            entity_type: Score(*values)
-            for entity_type, values in sorted(counts.items())
-        },
+        scores={entity_type: Score(*values) for entity_type, values in sorted(counts.items())},
         clean_false_positives=clean_false_positives,
         clean_examples=len(clean_documents),
     )
