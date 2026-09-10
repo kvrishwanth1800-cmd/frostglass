@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 - Dashboard build foundation and milestone directory tree.
 - Package markers for the strict typecheck modules.
 - A production dependency manifest for the dependency audit.
+- Detection engine foundations with raw-value-safe findings and span merging.
 
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.

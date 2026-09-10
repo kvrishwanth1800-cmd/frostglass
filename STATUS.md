@@ -20,7 +20,7 @@
 - [ ] Secret recognizers and entropy heuristics
 - [ ] Aho-Corasick dictionary matching
 - [ ] Presidio and spaCy NER recognition
-- [ ] Sorted, disjoint span merging and raw-value-safe findings
+- [x] Sorted, disjoint span merging and raw-value-safe findings
 - [ ] Gateway detection lifecycle integration
 - [ ] Synthetic golden corpus and detection scoring harness
 - [ ] spaCy model cache and CI detection accuracy gate
@@ -30,9 +30,7 @@
 - Branch protection temporarily does not require approvals or CODEOWNERS review because the repository has one owner. Re-enable both controls before outside contributors join.
 
 ## Notes for the next session
-- M2 is active on `m2-detection`, created from updated `main`.
+- M2 is active on `m2-detection`. The detector core now uses safe candidates and findings that retain only offsets and tenant-scoped hashes.
 - The M1 mock provider is network-free and its OpenAI and Anthropic SSE formats are CI-verified. Keep it as the test upstream for M2. M2 detectors must run against real gateway request and response payload shapes, including streaming payloads.
-- The SDK e2e tests start the application on loopback Uvicorn and use unmodified OpenAI and Anthropic clients with only `base_url` changed. Preserve these tests when changing gateway routes or SSE event formats.
-- Startup always validates `FG_VAULT_ENCRYPTION_KEY` and `FG_TENANT_SALT`. Docker Compose generates local values in ignored `.env.local`.
 - CI must use mock providers only. Never call vendor APIs in tests.
 - Mypy strict mode is scoped to detection, masking, and policy modules. M2 detection modules must pass strict mode.
