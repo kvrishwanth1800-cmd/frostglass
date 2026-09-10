@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 - Package markers for the strict typecheck modules.
 - A production dependency manifest for the dependency audit.
 - Detection engine foundations with raw-value-safe findings and span merging.
+- Structural validation and secret detection layers.
 
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.
