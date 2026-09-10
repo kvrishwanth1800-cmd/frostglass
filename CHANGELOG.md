@@ -13,12 +13,19 @@ All notable changes to this project are documented in this file.
 - Dashboard build foundation and milestone directory tree.
 - Package markers for the strict typecheck modules.
 - A production dependency manifest for the dependency audit.
+- Detection engine foundations with raw-value-safe findings and span merging.
+- Structural validation and secret detection layers.
+- Aho-Corasick dictionary detection for company-specific terms.
+- Presidio and spaCy named-entity recognition.
+- Synthetic golden corpus and detection scoring harness.
+- Cached spaCy model setup and a CI detection accuracy gate.
 
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.
 - Strict type checking is scoped to the required detection, masking, and policy modules.
 - Dependency audit resolves the declared production dependency set, excluding the audit tool's own environment.
 - Runtime dependencies can resolve patched compatible releases during security audits.
+- spaCy model installation now uses one valid URL and Aho-Corasick has a scoped mypy import override.
 
 ### Changed
-- Started M1 pass-through gateway implementation.
+- Started M2 detection engine implementation.

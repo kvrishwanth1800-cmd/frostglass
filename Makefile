@@ -1,17 +1,4 @@
-.PHONY: dev test lint format typecheck
+.PHONY: eval-detection
 
-dev:
-	docker compose up --build
-
-test:
-	pytest
-
-lint:
-	ruff check .
-	ruff format --check .
-
-typecheck:
-	mypy
-
-format:
-	ruff format .
+eval-detection:
+	python -m tests.corpus.score

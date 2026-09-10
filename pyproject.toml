@@ -9,7 +9,11 @@ description = "Self-hosted AI gateway and DLP proxy"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115",
+  "phonenumbers>=8.13",
+  "presidio-analyzer>=2.2",
   "pydantic-settings>=2.6",
+  "pyahocorasick>=2.1",
+  "spacy>=3.7,<3.8",
   "uvicorn[standard]>=0.32",
 ]
 
@@ -42,6 +46,10 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.11"
 strict = true
 files = ["frostglass/detection", "frostglass/masking", "frostglass/policy"]
+
+[[tool.mypy.overrides]]
+module = ["ahocorasick"]
+ignore_missing_imports = true
 
 [tool.coverage.run]
 branch = true
