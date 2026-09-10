@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 - Detection engine foundations with raw-value-safe findings and span merging.
 - Structural validation and secret detection layers.
 - Aho-Corasick dictionary detection for company-specific terms.
+- Presidio and spaCy named-entity recognition.
 
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.
