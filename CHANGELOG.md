@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file.
 - Aho-Corasick dictionary detection for company-specific terms.
 - Presidio and spaCy named-entity recognition.
 - Synthetic golden corpus and detection scoring harness.
+- Cached spaCy model setup and a CI detection accuracy gate.
 
 ### Fixed
 - Python package discovery now excludes the dashboard from backend builds.
