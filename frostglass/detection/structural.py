@@ -10,7 +10,7 @@ import phonenumbers
 
 from frostglass.detection.models import CandidateSpan, DetectionContext
 
-_CARD = re.compile(r"(?:\d[ -]?){13,19}")
+_CARD = re.compile(r"\d(?:[ -]?\d){12,18}")
 _EMAIL = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}", re.IGNORECASE)
 _IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}\b", re.IGNORECASE)
 _IP = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")

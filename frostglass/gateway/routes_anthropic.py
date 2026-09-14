@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from frostglass.detection.models import DetectionContext
 from frostglass.errors import gateway_error
 from frostglass.gateway.auth import VirtualKeyStore
 from frostglass.gateway.budget import Limits
@@ -17,7 +18,12 @@ from frostglass.gateway.routes_openai import _headers, _validate_model
 router = APIRouter()
 
 
-def configure(key_store: VirtualKeyStore, limits: Limits, providers: ProviderRegistry) -> None:
+def configure(
+    key_store: VirtualKeyStore,
+    limits: Limits,
+    providers: ProviderRegistry,
+    tenant_salt: str,
+) -> None:
     @router.post("/v1/messages", response_model=None)
     async def messages(
         request: Request,
@@ -29,6 +35,10 @@ def configure(key_store: VirtualKeyStore, limits: Limits, providers: ProviderReg
         principal = key_store.resolve(f"Bearer {x_api_key}" if x_api_key else None)
         _validate_model(payload, principal.allowed_models)
         limits.check(principal)
+        request_context = providers.detect(
+            payload,
+            DetectionContext(tenant_id=principal.team, tenant_salt=tenant_salt),
+        )
         request_id = request.headers.get("X-Request-Id", "fg-m1-request")
         if payload.get("stream") is True:
             stream, fallback_used = await providers.stream("anthropic", payload)
@@ -41,11 +51,21 @@ def configure(key_store: VirtualKeyStore, limits: Limits, providers: ProviderReg
             return StreamingResponse(
                 events(),
                 media_type="text/event-stream",
-                headers=_headers(request_id, fallback_used, principal.shadow_mode),
+                headers=_headers(
+                    request_id,
+                    fallback_used,
+                    principal.shadow_mode,
+                    request_context,
+                ),
             )
         result = await providers.complete("anthropic", payload)
         limits.record_spend(principal)
         return JSONResponse(
             result.payload,
-            headers=_headers(request_id, result.fallback_used, principal.shadow_mode),
+            headers=_headers(
+                request_id,
+                result.fallback_used,
+                principal.shadow_mode,
+                request_context,
+            ),
         )

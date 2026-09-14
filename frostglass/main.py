@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from frostglass.config import Settings
+from frostglass.detection.defaults import build_detection_engine
 from frostglass.errors import GatewayError
 from frostglass.gateway.auth import default_key_store
 from frostglass.gateway.budget import Limits
@@ -21,9 +22,10 @@ def create_app() -> FastAPI:
     """Create the application after validating security-critical configuration."""
     settings = Settings()
     app = FastAPI(title="Frostglass", version=settings.version)
-    key_store, limits, providers = default_key_store(), Limits(), ProviderRegistry()
-    configure_openai(key_store, limits, providers)
-    configure_anthropic(key_store, limits, providers)
+    key_store, limits = default_key_store(), Limits()
+    providers = ProviderRegistry(build_detection_engine())
+    configure_openai(key_store, limits, providers, settings.tenant_salt)
+    configure_anthropic(key_store, limits, providers, settings.tenant_salt)
 
     @app.exception_handler(GatewayError)
     async def gateway_exception(_: Request, error: GatewayError) -> JSONResponse:

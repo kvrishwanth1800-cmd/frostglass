@@ -32,5 +32,54 @@
       {"entity_type": "ORGANIZATION", "value": "Acme"},
       {"entity_type": "LOCATION", "value": "London"}
     ]
+  },
+  {
+    "id": "person-maria-garcia",
+    "text": "Maria Garcia submitted the report.",
+    "expected": [
+      {"entity_type": "PERSON", "value": "Maria Garcia"}
+    ]
+  },
+  {
+    "id": "person-james-chen",
+    "text": "James Chen submitted the report.",
+    "expected": [
+      {"entity_type": "PERSON", "value": "James Chen"}
+    ]
+  },
+  {
+    "id": "person-robert-nakamura",
+    "text": "Robert Nakamura submitted the report.",
+    "expected": [
+      {"entity_type": "PERSON", "value": "Robert Nakamura"}
+    ]
+  },
+  {
+    "id": "person-fatima-ali",
+    "text": "Fatima Ali submitted the report.",
+    "expected": [
+      {"entity_type": "PERSON", "value": "Fatima Ali"}
+    ]
+  },
+  {
+    "id": "person-priya-patel",
+    "text": "Priya Patel submitted the report.",
+    "expected": [
+      {"entity_type": "PERSON", "value": "Priya Patel"}
+    ]
+  },
+  {
+    "id": "person-kwame-mensah",
+    "text": "Kwame Mensah submitted the report.",
+    "expected": [
+      {"entity_type": "PERSON", "value": "Kwame Mensah"}
+    ]
+  },
+  {
+    "id": "person-sofia-ivanova",
+    "text": "Sofia Ivanova submitted the report.",
+    "expected": [
+      {"entity_type": "PERSON", "value": "Sofia Ivanova"}
+    ]
   }
 ]
