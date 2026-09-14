@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import calendar
 import re
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 
 _NAME_PAIRS = (("Marcus", "Feld"), ("Sofia", "Ivanova"), ("Priya", "Patel"))
 _CITIES = ("Denver", "Madison", "Portland")
 _COMPANIES = ("Northstar", "Bluehaven", "Cedarpoint")
+_CARD_PREFIXES = (("3", "378282"), ("4", "411111"), ("5", "555555"))
 
 
 def _stable_index(seed: str, size: int) -> int:
@@ -95,11 +95,12 @@ class SurrogateGenerator:
 
     def _card(self, original: str, seed: str) -> str:
         digits = "".join(character for character in original if character.isdigit())
-        prefix = digits[:6] if len(digits) >= 6 else "411111"
+        prefix = next((test_prefix for marker, test_prefix in _CARD_PREFIXES if digits.startswith(marker)), "411111")
         body_length = max(len(digits) - len(prefix) - 1, 1)
         body = "".join(str(_stable_index(f"{seed}:{index}", 10)) for index in range(body_length))
         replacement = prefix + body
         replacement += _luhn_check_digit(replacement)
+        replacement = replacement[: len(digits)]
         iterator = iter(replacement)
         return "".join(next(iterator) if character.isdigit() else character for character in original)
 
@@ -127,6 +128,12 @@ class SurrogateGenerator:
         precision = max(-value.as_tuple().exponent, 0)
         delta = Decimal(_stable_index(seed, 19) - 9) / Decimal("100")
         replacement = value * (Decimal("1") + delta)
+        if value != 0:
+            bucket = Decimal(10) ** max(value.copy_abs().adjusted(), 0)
+            lower = bucket if value > 0 else -bucket * Decimal(10)
+            upper = bucket * Decimal(10) if value > 0 else -bucket
+            epsilon = Decimal(1).scaleb(-precision)
+            replacement = min(max(replacement, lower + epsilon), upper - epsilon)
         formatted = f"{replacement:,.{precision}f}"
         return f"{match.group('prefix')}{formatted}{match.group('suffix')}"
 
