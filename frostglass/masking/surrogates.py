@@ -10,7 +10,8 @@ from hashlib import sha256
 _NAME_PAIRS = (("Marcus", "Feld"), ("Sofia", "Ivanova"), ("Priya", "Patel"))
 _CITIES = ("Denver", "Madison", "Portland")
 _COMPANIES = ("Northstar", "Bluehaven", "Cedarpoint")
-_CARD_PREFIXES = (("3", "378282"), ("4", "411111"), ("5", "555555"))
+_VISA_TEST_PREFIX = "411111"
+_CARD_PREFIXES = (("3", "378282"), ("4", _VISA_TEST_PREFIX), ("5", "555555"))
 
 
 def _stable_index(seed: str, size: int) -> int:
@@ -95,9 +96,14 @@ class SurrogateGenerator:
 
     def _card(self, original: str, seed: str) -> str:
         digits = "".join(character for character in original if character.isdigit())
-        prefix = next((test_prefix for marker, test_prefix in _CARD_PREFIXES if digits.startswith(marker)), "411111")
+        prefix = next(
+            (test_prefix for marker, test_prefix in _CARD_PREFIXES if digits.startswith(marker)),
+            _VISA_TEST_PREFIX,
+        )
         body_length = max(len(digits) - len(prefix) - 1, 1)
-        body = "".join(str(_stable_index(f"{seed}:{index}", 10)) for index in range(body_length))
+        body = "".join(
+            str(_stable_index(f"{seed}:{index}", 10)) for index in range(body_length)
+        )
         replacement = prefix + body
         replacement += _luhn_check_digit(replacement)
         replacement = replacement[: len(digits)]
@@ -105,19 +111,24 @@ class SurrogateGenerator:
         return "".join(next(iterator) if character.isdigit() else character for character in original)
 
     def _date(self, original: str) -> str:
-        for parser, formatter in (("%Y-%m-%d", "%Y-%m-%d"), ("%Y/%m/%d", "%Y/%m/%d")):
+        date_formats = (("%Y-%m-%d", "%Y-%m-%d"), ("%Y/%m/%d", "%Y/%m/%d"))
+        for parser, formatter in date_formats:
             try:
-                return (datetime.strptime(original, parser).date() + self._date_shift).strftime(formatter)
+                parsed = datetime.strptime(original, parser).date()
             except ValueError:
                 continue
+            return (parsed + self._date_shift).strftime(formatter)
         try:
-            parsed = datetime.fromisoformat(original.replace("Z", "+00:00"))
+            parsed_datetime = datetime.fromisoformat(original.replace("Z", "+00:00"))
         except ValueError:
             return original
-        return (parsed + self._date_shift).isoformat().replace("+00:00", "Z")
+        return (parsed_datetime + self._date_shift).isoformat().replace("+00:00", "Z")
 
     def _number(self, original: str, seed: str) -> str:
-        match = re.fullmatch(r"(?P<prefix>[^0-9-]*)(?P<number>-?[0-9,]+(?:\.[0-9]+)?)(?P<suffix>.*)", original)
+        match = re.fullmatch(
+            r"(?P<prefix>[^0-9-]*)(?P<number>-?[0-9,]+(?:\.[0-9]+)?)(?P<suffix>.*)",
+            original,
+        )
         if match is None:
             return original
         compact = match.group("number").replace(",", "")
@@ -125,7 +136,12 @@ class SurrogateGenerator:
             value = Decimal(compact)
         except InvalidOperation:
             return original
-        precision = max(-value.as_tuple().exponent, 0)
+        if not value.is_finite():
+            return original
+        exponent = value.as_tuple().exponent
+        if not isinstance(exponent, int):
+            return original
+        precision = max(-exponent, 0)
         delta = Decimal(_stable_index(seed, 19) - 9) / Decimal("100")
         replacement = value * (Decimal("1") + delta)
         if value != 0:

@@ -23,7 +23,8 @@ class EncryptedVault:
     """Store forward and reverse mappings encrypted until their TTL expires."""
 
     def __init__(self, encryption_key: str, ttl: timedelta = timedelta(hours=1)) -> None:
-        self._cipher = AESGCM(base64.b64decode(encryption_key, validate=True))
+        key = base64.b64decode(encryption_key, validate=True)
+        self._cipher = AESGCM(key)
         self._ttl = ttl
         self._forward: dict[tuple[str, str], _StoredValue] = {}
         self._reverse: dict[tuple[str, str], _StoredValue] = {}
@@ -53,8 +54,12 @@ class EncryptedVault:
     def purge_expired(self) -> None:
         """Remove mappings that have reached their configured TTL."""
         now = datetime.now(UTC)
-        self._forward = {key: value for key, value in self._forward.items() if value.expires_at > now}
-        self._reverse = {key: value for key, value in self._reverse.items() if value.expires_at > now}
+        self._forward = {
+            key: value for key, value in self._forward.items() if value.expires_at > now
+        }
+        self._reverse = {
+            key: value for key, value in self._reverse.items() if value.expires_at > now
+        }
 
     def _encode(self, mapping: VaultMapping) -> _StoredValue:
         nonce = os.urandom(12)
@@ -67,7 +72,8 @@ class EncryptedVault:
             },
             separators=(",", ":"),
         ).encode()
-        return _StoredValue(nonce + self._cipher.encrypt(nonce, payload, None), datetime.now(UTC) + self._ttl)
+        ciphertext = self._cipher.encrypt(nonce, payload, None)
+        return _StoredValue(nonce + ciphertext, datetime.now(UTC) + self._ttl)
 
     def _decode(self, stored: _StoredValue) -> VaultMapping | None:
         if stored.expires_at <= datetime.now(UTC):
