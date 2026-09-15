@@ -80,7 +80,9 @@ def configure(
         limits.record_spend(principal)
         return JSONResponse(
             result.payload,
-            headers=_headers(request_id, result.fallback_used, principal.shadow_mode, request_context),
+            headers=_headers(
+                request_id, result.fallback_used, principal.shadow_mode, request_context
+            ),
         )
 
     @router.post("/v1/chat/completions", response_model=None)

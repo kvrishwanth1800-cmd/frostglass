@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Mapping
 
 from frostglass.detection.models import Finding
 from frostglass.masking.consistency import ConsistencyManager
@@ -76,9 +76,7 @@ class MaskingEngine:
         if mode is MaskingMode.BLOCK:
             raise BlockedContentError(f"blocked {finding.entity_type}")
         if mode is MaskingMode.HASH:
-            return "sha256:" + sha256(
-                f"{self._tenant_salt}:{original}".encode()
-            ).hexdigest()[:16]
+            return "sha256:" + sha256(f"{self._tenant_salt}:{original}".encode()).hexdigest()[:16]
         if mode is MaskingMode.TAG:
             number = tag_counts.get(finding.entity_type, 0) + 1
             tag_counts[finding.entity_type] = number

@@ -92,7 +92,9 @@ class SurrogateGenerator:
         replacement = "55501" + suffix
         replacement = replacement[-len(digits) :].zfill(len(digits))
         iterator = iter(replacement)
-        return "".join(next(iterator) if character.isdigit() else character for character in original)
+        return "".join(
+            next(iterator) if character.isdigit() else character for character in original
+        )
 
     def _card(self, original: str, seed: str) -> str:
         digits = "".join(character for character in original if character.isdigit())
@@ -101,14 +103,14 @@ class SurrogateGenerator:
             _VISA_TEST_PREFIX,
         )
         body_length = max(len(digits) - len(prefix) - 1, 1)
-        body = "".join(
-            str(_stable_index(f"{seed}:{index}", 10)) for index in range(body_length)
-        )
+        body = "".join(str(_stable_index(f"{seed}:{index}", 10)) for index in range(body_length))
         replacement = prefix + body
         replacement += _luhn_check_digit(replacement)
         replacement = replacement[: len(digits)]
         iterator = iter(replacement)
-        return "".join(next(iterator) if character.isdigit() else character for character in original)
+        return "".join(
+            next(iterator) if character.isdigit() else character for character in original
+        )
 
     def _date(self, original: str) -> str:
         date_formats = (("%Y-%m-%d", "%Y-%m-%d"), ("%Y/%m/%d", "%Y/%m/%d"))
@@ -154,12 +156,16 @@ class SurrogateGenerator:
         return f"{match.group('prefix')}{formatted}{match.group('suffix')}"
 
     def _organization(self, original: str, seed: str) -> str:
-        suffix = next((item for item in ("Ltd", "Inc", "LLC", "Corp") if original.endswith(item)), "")
+        suffix = next(
+            (item for item in ("Ltd", "Inc", "LLC", "Corp") if original.endswith(item)), ""
+        )
         name = _COMPANIES[_stable_index(seed, len(_COMPANIES))]
         return f"{name} {suffix}".strip()
 
     def _identifier(self, original: str, seed: str) -> str:
-        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if original.isupper() else "abcdefghijklmnopqrstuvwxyz"
+        alphabet = (
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if original.isupper() else "abcdefghijklmnopqrstuvwxyz"
+        )
         generated: list[str] = []
         for index, character in enumerate(original):
             if character.isdigit():

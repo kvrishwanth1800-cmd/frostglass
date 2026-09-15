@@ -11,7 +11,7 @@ from frostglass.detection.models import DetectionContext, Finding
 from frostglass.gateway.extract import TextLocation, extract_text, replace_text
 from frostglass.gateway.providers.mock import MockProvider
 from frostglass.masking.engine import MaskingEngine
-from frostglass.masking.models import MaskingContext, MaskingMode
+from frostglass.masking.models import MaskingContext
 from frostglass.masking.restore import restore_text
 from frostglass.masking.vault import EncryptedVault
 
@@ -73,7 +73,9 @@ class ProviderRegistry:
         )
         return GatewayRequestContext(findings, masking_context)
 
-    def mask(self, payload: dict[str, Any], request_context: GatewayRequestContext) -> dict[str, Any]:
+    def mask(
+        self, payload: dict[str, Any], request_context: GatewayRequestContext
+    ) -> dict[str, Any]:
         """Mask each scanned text value without re-scanning generated surrogates."""
         by_text: dict[str, tuple[Finding, ...]] = {}
         for located in request_context.findings:
@@ -94,7 +96,9 @@ class ProviderRegistry:
 
         return replace_text(payload, transform)
 
-    def restore(self, payload: dict[str, Any], request_context: GatewayRequestContext) -> dict[str, Any]:
+    def restore(
+        self, payload: dict[str, Any], request_context: GatewayRequestContext
+    ) -> dict[str, Any]:
         """Restore response values only from the request scope's encrypted vault."""
         reverse_map = self._vault.reverse_map(request_context.masking_context.scope_id)
         return replace_text(payload, lambda text: restore_text(text, reverse_map))
@@ -113,7 +117,9 @@ class ProviderRegistry:
                 continue
         raise TimeoutError("all providers failed")
 
-    async def stream(self, protocol: str, payload: dict[str, Any]) -> tuple[AsyncIterator[str], bool]:
+    async def stream(
+        self, protocol: str, payload: dict[str, Any]
+    ) -> tuple[AsyncIterator[str], bool]:
         for index, provider in enumerate(self._chain(payload["model"])):
             try:
                 iterator = provider.stream(protocol, payload)
