@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from frostglass.admin.routes_policies import configure as configure_policy
+from frostglass.admin.routes_policies import router as policy_router
 from frostglass.config import Settings
 from frostglass.detection.defaults import build_detection_engine
 from frostglass.errors import GatewayError
@@ -19,18 +21,22 @@ from frostglass.masking.consistency import ConsistencyManager
 from frostglass.masking.engine import MaskingEngine
 from frostglass.masking.vault import EncryptedVault
 from frostglass.observability.metrics import router as metrics_router
+from frostglass.policy.defaults import build_policy_engine
 
 
 def create_app() -> FastAPI:
     """Create the application after validating security-critical configuration."""
     settings = Settings()
+    app = FastAPI(title="Frostglass", version=settings.version)
+    detection_engine = build_detection_engine()
     vault = EncryptedVault(settings.vault_encryption_key)
     masking_engine = MaskingEngine(ConsistencyManager(vault), settings.tenant_salt)
-    app = FastAPI(title="Frostglass", version=settings.version)
+    policy_engine = build_policy_engine()
     key_store, limits = default_key_store(), Limits()
-    providers = ProviderRegistry(build_detection_engine(), masking_engine, vault)
+    providers = ProviderRegistry(detection_engine, masking_engine, vault, policy_engine)
     configure_openai(key_store, limits, providers, settings.tenant_salt)
     configure_anthropic(key_store, limits, providers, settings.tenant_salt)
+    configure_policy(detection_engine, policy_engine, masking_engine, settings.tenant_salt)
 
     @app.exception_handler(GatewayError)
     async def gateway_exception(_: Request, error: GatewayError) -> JSONResponse:
@@ -42,6 +48,7 @@ def create_app() -> FastAPI:
 
     app.include_router(openai_router)
     app.include_router(anthropic_router)
+    app.include_router(policy_router)
     app.include_router(metrics_router)
     return app
 
