@@ -14,6 +14,7 @@ from frostglass.gateway.auth import VirtualKeyStore
 from frostglass.gateway.budget import Limits
 from frostglass.gateway.pipeline import ProviderRegistry
 from frostglass.gateway.routes_openai import _headers, _validate_model
+from frostglass.masking.engine import BlockedContentError
 from frostglass.masking.models import MaskingContext
 
 router = APIRouter()
@@ -45,7 +46,10 @@ def configure(
             principal.team,
             providers.shadow_for_team(principal.team),
         )
-        masked_payload = providers.mask(payload, request_context)
+        try:
+            masked_payload = providers.mask(payload, request_context)
+        except BlockedContentError as error:
+            raise gateway_error(403, str(error), "policy_blocked") from error
         if payload.get("stream") is True:
             stream, fallback_used = await providers.stream("anthropic", masked_payload)
 
@@ -61,4 +65,6 @@ def configure(
             )
         result = await providers.complete("anthropic", masked_payload, request_context)
         limits.record_spend(principal)
-        return JSONResponse(result.payload, headers=_headers(request_id, result.fallback_used, request_context))
+        return JSONResponse(
+            result.payload, headers=_headers(request_id, result.fallback_used, request_context)
+        )
