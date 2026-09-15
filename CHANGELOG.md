@@ -3,13 +3,15 @@
 ## Unreleased
 
 ### Added
-- M3 masking engine with format-preserving surrogates, scoped AES-GCM vault mappings, TTL purge, and five masking modes.
-- Non-streaming restoration and rolling-buffer streamed restoration with exhaustive three-chunk boundary coverage.
-- Gateway masking before provider routing and vault initialization from `FG_VAULT_ENCRYPTION_KEY`.
+- M4 policy engine with typed rules, YAML loading, immutable version snapshots, and documented precedence.
+- Per-team shadow decision handling and the `/admin/policy/test` no-provider dry-run endpoint.
 
 ### Security
-- Application startup refuses missing or invalid vault encryption configuration.
-- Tenant-wide stable mapping remains explicitly documented as high re-identification risk.
+- Policy precedence makes block rules win over all matching non-block rules.
+
+## M3
+- Format-preserving masking engine with scoped AES-GCM vault mappings, TTL purge, five masking modes, and stream restoration.
+- Gateway masking before provider routing and vault initialization from `FG_VAULT_ENCRYPTION_KEY`.
 
 ## M2
 - Final detection engine implementation merged in PR #17. It superseded the incomplete early M2 snapshot in PR #16.
