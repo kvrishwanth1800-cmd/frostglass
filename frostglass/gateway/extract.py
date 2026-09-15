@@ -1,4 +1,4 @@
-"""Walk and replace text in all gateway payload locations."""
+"""Extract and replace only prompt-bearing gateway payload text."""
 
 from __future__ import annotations
 
@@ -10,39 +10,77 @@ from typing import Any
 
 @dataclass(frozen=True)
 class TextLocation:
+    """One prompt-bearing string and its precise payload path."""
+
     path: tuple[str | int, ...]
     text: str
 
 
 def extract_text(payload: Any) -> list[TextLocation]:
-    """Return every text value, including system, messages, tools, calls, and results."""
+    """Return prompt content, never routing or protocol metadata.
+
+    The supported locations are system prompt content, message content, tool
+    definitions, tool-call arguments, and tool results. Model identifiers and
+    message role labels are deliberately excluded.
+    """
     found: list[TextLocation] = []
 
-    def walk(value: Any, path: tuple[str | int, ...]) -> None:
+    def collect_content(value: Any, path: tuple[str | int, ...]) -> None:
         if isinstance(value, str):
             found.append(TextLocation(path, value))
-        elif isinstance(value, dict):
-            for key, child in value.items():
-                walk(child, path + (key,))
         elif isinstance(value, list):
-            for index, child in enumerate(value):
-                walk(child, path + (index,))
+            for index, item in enumerate(value):
+                if isinstance(item, dict) and isinstance(item.get("text"), str):
+                    found.append(TextLocation(path + (index, "text"), item["text"]))
 
-    walk(payload, ())
+    def collect_tool_calls(value: Any, path: tuple[str | int, ...]) -> None:
+        if not isinstance(value, list):
+            return
+        for index, call in enumerate(value):
+            if not isinstance(call, dict):
+                continue
+            function = call.get("function")
+            if isinstance(function, dict) and isinstance(function.get("arguments"), str):
+                found.append(TextLocation(path + (index, "function", "arguments"), function["arguments"]))
+            if isinstance(call.get("input"), str):
+                found.append(TextLocation(path + (index, "input"), call["input"]))
+
+    if not isinstance(payload, dict):
+        return found
+    collect_content(payload.get("system"), ("system",))
+    messages = payload.get("messages")
+    if isinstance(messages, list):
+        for index, message in enumerate(messages):
+            if not isinstance(message, dict):
+                continue
+            base = ("messages", index)
+            collect_content(message.get("content"), base + ("content",))
+            collect_tool_calls(message.get("tool_calls"), base + ("tool_calls",))
+            if isinstance(message.get("tool_result"), str):
+                found.append(TextLocation(base + ("tool_result",), message["tool_result"]))
+    tools = payload.get("tools")
+    if isinstance(tools, list):
+        for index, tool in enumerate(tools):
+            if not isinstance(tool, dict):
+                continue
+            base = ("tools", index)
+            function = tool.get("function")
+            if isinstance(function, dict) and isinstance(function.get("description"), str):
+                found.append(TextLocation(base + ("function", "description"), function["description"]))
+            if isinstance(tool.get("description"), str):
+                found.append(TextLocation(base + ("description",), tool["description"]))
     return found
 
 
 def replace_text(payload: Any, transform: Callable[[str], str]) -> Any:
-    """Copy a payload and replace every extracted text value without changing its shape."""
+    """Copy and replace exactly the locations returned by ``extract_text``."""
     value = deepcopy(payload)
-
-    def walk(item: Any) -> Any:
-        if isinstance(item, str):
-            return transform(item)
-        if isinstance(item, list):
-            return [walk(child) for child in item]
-        if isinstance(item, dict):
-            return {key: walk(child) for key, child in item.items()}
-        return item
-
-    return walk(value)
+    if not isinstance(value, dict):
+        return value
+    locations = extract_text(value)
+    for location in locations:
+        target: Any = value
+        for segment in location.path[:-1]:
+            target = target[segment]
+        target[location.path[-1]] = transform(location.text)
+    return value

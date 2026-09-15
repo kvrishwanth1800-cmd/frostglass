@@ -53,8 +53,9 @@ def test_ac_m4_02_shadow_mode_forwards_original_payload_and_logs_counterfactual(
     @dataclass(frozen=True)
     class Detector:
         def detect(self, text: str, context: DetectionContext) -> tuple[CandidateSpan, ...]:
-            start = text.index("Avery Stone")
-            return (CandidateSpan("PERSON", start, start + 11, 0.99, "test"),)
+            if text != "Avery Stone":
+                return ()
+            return (CandidateSpan("PERSON", 0, len(text), 0.99, "test"),)
 
     vault = EncryptedVault("YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=")
     registry = ProviderRegistry(
@@ -73,5 +74,7 @@ def test_ac_m4_02_shadow_mode_forwards_original_payload_and_logs_counterfactual(
         True,
     )
     assert context.shadow is True
+    assert len(context.findings) == 1
+    assert context.findings[0].location.path == ("messages", 0, "content")
     assert context.decisions[0].decision.action.value == "pseudonymize"
     assert registry.mask(payload, context) == payload

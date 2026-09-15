@@ -11,8 +11,8 @@ from frostglass.main import create_app
 _KEY = {"Authorization": "Bearer fg-live-test-key"}
 
 
-def test_detection_finds_message_and_tool_call_content_before_mock_provider() -> None:
-    """The gateway scans all extracted values and exposes only safe entity metadata."""
+def test_detection_finds_prompt_content_before_policy_blocks_secret() -> None:
+    """Detection metadata remains safe when the M4 default policy blocks a secret."""
     payload = {
         "model": "mock-model",
         "messages": [
@@ -34,11 +34,10 @@ def test_detection_finds_message_and_tool_call_content_before_mock_provider() ->
             },
         ],
     }
-
     response = TestClient(create_app()).post("/v1/chat/completions", headers=_KEY, json=payload)
 
-    assert response.status_code == 200
-    assert response.json()["choices"][0]["message"]["content"] == "mock response"
+    assert response.status_code == 403
+    assert response.headers["x-frostglass-action"] == "blocked"
     assert set(json.loads(response.headers["x-frostglass-entities"])) >= {
         "AWS_ACCESS_KEY",
         "CREDIT_CARD",

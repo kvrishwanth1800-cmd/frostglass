@@ -59,18 +59,14 @@ def test_ac_m1_03_streaming_matches_non_streaming() -> None:
 
 def test_ac_m1_04_tool_call_payloads_round_trip_and_extract() -> None:
     payload = chat_payload(
+        system="System text",
         messages=[
-            {"role": "system", "content": "System text"},
+            {"role": "system", "content": "System message"},
             {"role": "user", "content": [{"type": "text", "text": "Multipart text"}]},
             {
                 "role": "assistant",
                 "tool_calls": [
-                    {
-                        "function": {
-                            "name": "lookup",
-                            "arguments": '{"query": "tool args"}',
-                        }
-                    }
+                    {"function": {"name": "lookup", "arguments": '{"query": "tool args"}'}}
                 ],
             },
             {"role": "tool", "content": "tool result"},
@@ -82,11 +78,25 @@ def test_ac_m1_04_tool_call_payloads_round_trip_and_extract() -> None:
             }
         ],
     )
-    texts = {location.text for location in extract_text(payload)}
-    assert {"System text", "Multipart text", "tool definition", "tool result"}.issubset(texts)
-    assert any("tool args" in text for text in texts)
+    locations = extract_text(payload)
+    texts = {location.text for location in locations}
+    assert {
+        "System text",
+        "System message",
+        "Multipart text",
+        "tool definition",
+        "tool result",
+        '{"query": "tool args"}',
+    }.issubset(texts)
+    assert "mock-model" not in texts
+    assert "user" not in texts
+    assert "assistant" not in texts
+    assert "tool" not in texts
     replaced = replace_text(payload, lambda text: f"masked:{text}")
-    assert "masked:tool result" in {location.text for location in extract_text(replaced)}
+    replaced_texts = {location.text for location in extract_text(replaced)}
+    assert "masked:tool result" in replaced_texts
+    assert replaced["model"] == "mock-model"
+    assert replaced["messages"][1]["role"] == "user"
     response = client().post("/v1/chat/completions", headers=KEY, json=payload)
     assert response.status_code == 200
 
@@ -100,12 +110,7 @@ def test_ac_m1_05_budget_and_rate_limit_errors() -> None:
     )
     assert budget.status_code == 402
     rate_headers = {"Authorization": "Bearer fg-live-rate-key"}
-    assert (
-        test_client.post(
-            "/v1/chat/completions", headers=rate_headers, json=chat_payload()
-        ).status_code
-        == 200
-    )
+    assert test_client.post("/v1/chat/completions", headers=rate_headers, json=chat_payload()).status_code == 200
     limited = test_client.post("/v1/chat/completions", headers=rate_headers, json=chat_payload())
     assert limited.status_code == 429
     assert limited.headers["retry-after"] == "60"
