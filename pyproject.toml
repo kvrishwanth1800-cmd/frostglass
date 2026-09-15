@@ -14,7 +14,9 @@ dependencies = [
   "presidio-analyzer>=2.2",
   "pydantic-settings>=2.6",
   "pyahocorasick>=2.1",
+  "PyYAML>=6.0",
   "spacy>=3.7,<3.8",
+  "SQLAlchemy>=2.0",
   "uvicorn[standard]>=0.32",
 ]
 
@@ -49,7 +51,7 @@ strict = true
 files = ["frostglass/detection", "frostglass/masking", "frostglass/policy"]
 
 [[tool.mypy.overrides]]
-module = ["ahocorasick"]
+module = ["ahocorasick", "yaml"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
