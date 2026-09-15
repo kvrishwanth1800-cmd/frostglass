@@ -15,15 +15,20 @@ from frostglass.gateway.routes_anthropic import configure as configure_anthropic
 from frostglass.gateway.routes_anthropic import router as anthropic_router
 from frostglass.gateway.routes_openai import configure as configure_openai
 from frostglass.gateway.routes_openai import router as openai_router
+from frostglass.masking.consistency import ConsistencyManager
+from frostglass.masking.engine import MaskingEngine
+from frostglass.masking.vault import EncryptedVault
 from frostglass.observability.metrics import router as metrics_router
 
 
 def create_app() -> FastAPI:
     """Create the application after validating security-critical configuration."""
     settings = Settings()
+    vault = EncryptedVault(settings.vault_encryption_key)
+    masking_engine = MaskingEngine(ConsistencyManager(vault), settings.tenant_salt)
     app = FastAPI(title="Frostglass", version=settings.version)
     key_store, limits = default_key_store(), Limits()
-    providers = ProviderRegistry(build_detection_engine())
+    providers = ProviderRegistry(build_detection_engine(), masking_engine, vault)
     configure_openai(key_store, limits, providers, settings.tenant_salt)
     configure_anthropic(key_store, limits, providers, settings.tenant_salt)
 
