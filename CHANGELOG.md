@@ -1,35 +1,15 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
-
-## [Unreleased]
+## Unreleased
 
 ### Added
-- Secure startup configuration validation and health endpoint.
-- Docker Compose secret initialization for local development.
-- Contributor, security, and code-of-conduct documentation.
-- Pull request and issue templates.
-- GitHub Actions quality, security, dependency-audit, and release workflows.
-- Dashboard build foundation and milestone directory tree.
-- Package markers for the strict typecheck modules.
-- A production dependency manifest for the dependency audit.
-- Detection engine foundations with raw-value-safe findings and span merging.
-- Structural validation and secret detection layers.
-- Aho-Corasick dictionary detection for company-specific terms.
-- Presidio and spaCy named-entity recognition.
-- Synthetic golden corpus and detection scoring harness.
-- Cached spaCy model setup and a CI detection accuracy gate.
-- Gateway lifecycle detection that scans every extracted request text value before provider routing.
-- Mock-provider integration coverage for sensitive system-message and tool-call argument content.
+- M3 masking engine with format-preserving surrogates, scoped AES-GCM vault mappings, TTL purge, and five masking modes.
+- Non-streaming restoration and rolling-buffer streamed restoration with exhaustive three-chunk boundary coverage.
+- Gateway masking before provider routing and vault initialization from `FG_VAULT_ENCRYPTION_KEY`.
 
-### Fixed
-- Python package discovery now excludes the dashboard from backend builds.
-- Strict type checking is scoped to the required detection, masking, and policy modules.
-- Dependency audit resolves the declared production dependency set, excluding the audit tool's own environment.
-- Runtime dependencies can resolve patched compatible releases during security audits.
-- spaCy model installation now uses one valid URL and Aho-Corasick has a scoped mypy import override.
-- Entropy recognition suppresses candidates that overlap a known-format secret.
-- The NER plumbing test uses an unambiguous person name. The golden corpus retains the ambiguous Avery Stone case for recall measurement.
+### Security
+- Application startup refuses missing or invalid vault encryption configuration.
+- Tenant-wide stable mapping remains explicitly documented as high re-identification risk.
 
-### Changed
-- Started M2 detection engine implementation.
+## M2
+- Final detection engine implementation merged in PR #17. It superseded the incomplete early M2 snapshot in PR #16.
