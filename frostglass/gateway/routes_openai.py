@@ -14,6 +14,7 @@ from frostglass.errors import gateway_error
 from frostglass.gateway.auth import VirtualKeyStore
 from frostglass.gateway.budget import Limits
 from frostglass.gateway.pipeline import GatewayRequestContext, ProviderRegistry
+from frostglass.masking.models import MaskingContext
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ def _headers(
         "X-Frostglass-Request-Id": request_id,
         "X-Frostglass-Action": action,
         "X-Frostglass-Entities": json.dumps(entity_types),
-        "X-Frostglass-Policy-Version": "m1",
+        "X-Frostglass-Policy-Version": "m3",
         "X-Frostglass-Fallback-Used": str(fallback_used).lower(),
     }
 
@@ -55,13 +56,15 @@ def configure(
         principal = key_store.resolve(authorization)
         _validate_model(payload, principal.allowed_models)
         limits.check(principal)
+        request_id = request.headers.get("X-Request-Id", "fg-m3-request")
         request_context = providers.detect(
             payload,
             DetectionContext(tenant_id=principal.team, tenant_salt=tenant_salt),
+            MaskingContext(principal.team, request_id, request_id),
         )
-        request_id = request.headers.get("X-Request-Id", "fg-m1-request")
+        masked_payload = providers.mask(payload, request_context)
         if payload.get("stream") is True:
-            stream, fallback_used = await providers.stream("openai", payload)
+            stream, fallback_used = await providers.stream("openai", masked_payload)
 
             async def events() -> AsyncIterator[str]:
                 async for event in stream:
@@ -71,23 +74,13 @@ def configure(
             return StreamingResponse(
                 events(),
                 media_type="text/event-stream",
-                headers=_headers(
-                    request_id,
-                    fallback_used,
-                    principal.shadow_mode,
-                    request_context,
-                ),
+                headers=_headers(request_id, fallback_used, principal.shadow_mode, request_context),
             )
-        result = await providers.complete("openai", payload)
+        result = await providers.complete("openai", masked_payload, request_context)
         limits.record_spend(principal)
         return JSONResponse(
             result.payload,
-            headers=_headers(
-                request_id,
-                result.fallback_used,
-                principal.shadow_mode,
-                request_context,
-            ),
+            headers=_headers(request_id, result.fallback_used, principal.shadow_mode, request_context),
         )
 
     @router.post("/v1/chat/completions", response_model=None)
