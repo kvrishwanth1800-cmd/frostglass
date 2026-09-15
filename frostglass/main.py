@@ -31,7 +31,7 @@ def create_app() -> FastAPI:
     detection_engine = build_detection_engine()
     vault = EncryptedVault(settings.vault_encryption_key)
     masking_engine = MaskingEngine(ConsistencyManager(vault), settings.tenant_salt)
-    policy_engine = build_policy_engine()
+    policy_engine = build_policy_engine(settings.policy_database_path)
     key_store, limits = default_key_store(), Limits()
     providers = ProviderRegistry(detection_engine, masking_engine, vault, policy_engine)
     configure_openai(key_store, limits, providers, settings.tenant_salt)

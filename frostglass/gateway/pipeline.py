@@ -34,7 +34,7 @@ class LocatedFinding:
 
 @dataclass(frozen=True)
 class GatewayRequestContext:
-    """Request-scoped detection, decision, and reversible-masking state."""
+    """Request-scoped detection, versioned decision, and masking state."""
 
     findings: tuple[LocatedFinding, ...]
     masking_context: MaskingContext
@@ -76,6 +76,10 @@ class ProviderRegistry:
             return [self.failing_primary, self.fallback]
         return [self.primary, self.fallback]
 
+    def shadow_for_team(self, team: str) -> bool:
+        """Read the durable per-team shadow setting for this request."""
+        return self._policy_engine.shadow_for_team(team)
+
     def detect(
         self,
         payload: dict[str, Any],
@@ -95,11 +99,7 @@ class ProviderRegistry:
             tuple(item.finding for item in located), user, team, payload["model"]
         )
         return GatewayRequestContext(
-            located,
-            masking_context,
-            decisions,
-            self._policy_engine.version,
-            shadow,
+            located, masking_context, decisions, self._policy_engine.version, shadow
         )
 
     def mask(
@@ -123,9 +123,7 @@ class ProviderRegistry:
                 entries = by_path.get(path, [])
                 if not entries:
                     return value
-                findings = tuple(
-                    item[0] for item in sorted(entries, key=lambda item: item[0].start)
-                )
+                findings = tuple(item[0] for item in sorted(entries, key=lambda item: item[0].start))
                 modes = {item[0].entity_type: item[1] for item in entries}
                 return self._masking_engine.mask(
                     value, findings, request_context.masking_context, modes
@@ -159,9 +157,7 @@ class ProviderRegistry:
                 continue
         raise TimeoutError("all providers failed")
 
-    async def stream(
-        self, protocol: str, payload: dict[str, Any]
-    ) -> tuple[AsyncIterator[str], bool]:
+    async def stream(self, protocol: str, payload: dict[str, Any]) -> tuple[AsyncIterator[str], bool]:
         for index, provider in enumerate(self._chain(payload["model"])):
             try:
                 iterator = provider.stream(protocol, payload)

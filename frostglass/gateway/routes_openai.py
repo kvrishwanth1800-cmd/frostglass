@@ -14,7 +14,6 @@ from frostglass.errors import gateway_error
 from frostglass.gateway.auth import VirtualKeyStore
 from frostglass.gateway.budget import Limits
 from frostglass.gateway.pipeline import GatewayRequestContext, ProviderRegistry
-from frostglass.masking.engine import BlockedContentError
 from frostglass.masking.models import MaskingContext
 
 router = APIRouter()
@@ -42,7 +41,10 @@ def _validate_model(payload: dict[str, Any], allowed_models: frozenset[str]) -> 
 
 
 def configure(
-    key_store: VirtualKeyStore, limits: Limits, providers: ProviderRegistry, tenant_salt: str
+    key_store: VirtualKeyStore,
+    limits: Limits,
+    providers: ProviderRegistry,
+    tenant_salt: str,
 ) -> None:
     async def handle(
         payload: dict[str, Any], authorization: str | None, request: Request
@@ -57,14 +59,11 @@ def configure(
             MaskingContext(principal.team, request_id, request_id),
             principal.user,
             principal.team,
-            principal.shadow_mode,
+            providers.shadow_for_team(principal.team),
         )
-        try:
-            outbound_payload = providers.mask(payload, request_context)
-        except BlockedContentError as error:
-            raise gateway_error(403, str(error), "policy_blocked") from error
+        masked_payload = providers.mask(payload, request_context)
         if payload.get("stream") is True:
-            stream, fallback_used = await providers.stream("openai", outbound_payload)
+            stream, fallback_used = await providers.stream("openai", masked_payload)
 
             async def events() -> AsyncIterator[str]:
                 async for event in stream:
@@ -76,11 +75,9 @@ def configure(
                 media_type="text/event-stream",
                 headers=_headers(request_id, fallback_used, request_context),
             )
-        result = await providers.complete("openai", outbound_payload, request_context)
+        result = await providers.complete("openai", masked_payload, request_context)
         limits.record_spend(principal)
-        return JSONResponse(
-            result.payload, headers=_headers(request_id, result.fallback_used, request_context)
-        )
+        return JSONResponse(result.payload, headers=_headers(request_id, result.fallback_used, request_context))
 
     @router.post("/v1/chat/completions", response_model=None)
     async def chat_completions(
