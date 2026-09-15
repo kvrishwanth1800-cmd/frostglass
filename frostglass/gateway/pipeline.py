@@ -1,4 +1,4 @@
-"""Gateway provider routing, detection, masking, and fallback lifecycle."""
+"""Gateway provider routing, detection, policy, masking, and fallback lifecycle."""
 
 from __future__ import annotations
 
@@ -10,10 +10,12 @@ from frostglass.detection.engine import DetectionEngine
 from frostglass.detection.models import DetectionContext, Finding
 from frostglass.gateway.extract import TextLocation, extract_text, replace_text
 from frostglass.gateway.providers.mock import MockProvider
-from frostglass.masking.engine import MaskingEngine
-from frostglass.masking.models import MaskingContext
+from frostglass.masking.engine import BlockedContentError, MaskingEngine
+from frostglass.masking.models import MaskingContext, MaskingMode
 from frostglass.masking.restore import restore_text
 from frostglass.masking.vault import EncryptedVault
+from frostglass.policy.engine import FindingDecision, PolicyEngine
+from frostglass.policy.models import Action
 
 
 @dataclass(frozen=True)
@@ -32,24 +34,39 @@ class LocatedFinding:
 
 @dataclass(frozen=True)
 class GatewayRequestContext:
-    """Request-scoped detection and reversible-masking state."""
+    """Request-scoped detection, decision, and reversible-masking state."""
 
     findings: tuple[LocatedFinding, ...]
     masking_context: MaskingContext
+    decisions: tuple[FindingDecision, ...]
+    policy_version: int
+    shadow: bool
+
+    @property
+    def action(self) -> str:
+        if self.shadow:
+            return "shadow"
+        if any(item.decision.action is Action.BLOCK for item in self.decisions):
+            return "blocked"
+        if any(item.decision.action is not Action.ALLOW for item in self.decisions):
+            return "masked"
+        return "allowed"
 
 
 class ProviderRegistry:
-    """Route models and apply the default M3 pseudonymization lifecycle."""
+    """Route models through detection, policy, and masking before providers."""
 
     def __init__(
         self,
         detection_engine: DetectionEngine,
         masking_engine: MaskingEngine,
         vault: EncryptedVault,
+        policy_engine: PolicyEngine,
     ) -> None:
         self._detection_engine = detection_engine
         self._masking_engine = masking_engine
         self._vault = vault
+        self._policy_engine = policy_engine
         self.primary = MockProvider()
         self.fallback = MockProvider()
         self.failing_primary = MockProvider(fail=True)
@@ -64,37 +81,57 @@ class ProviderRegistry:
         payload: dict[str, Any],
         detection_context: DetectionContext,
         masking_context: MaskingContext,
+        user: str,
+        team: str,
+        shadow: bool,
     ) -> GatewayRequestContext:
-        """Scan every extracted request text value before provider routing."""
-        findings = tuple(
+        """Scan and decide every extracted request text value before routing."""
+        located = tuple(
             LocatedFinding(location, finding)
             for location in extract_text(payload)
             for finding in self._detection_engine.detect(location.text, detection_context)
         )
-        return GatewayRequestContext(findings, masking_context)
+        decisions = self._policy_engine.evaluate(
+            tuple(item.finding for item in located), user, team, payload["model"]
+        )
+        return GatewayRequestContext(
+            located,
+            masking_context,
+            decisions,
+            self._policy_engine.version,
+            shadow,
+        )
 
-    def mask(
-        self, payload: dict[str, Any], request_context: GatewayRequestContext
-    ) -> dict[str, Any]:
-        """Mask each scanned text value without re-scanning generated surrogates."""
-        by_text: dict[str, tuple[Finding, ...]] = {}
-        for located in request_context.findings:
-            found = by_text.get(located.location.text, ())
-            by_text[located.location.text] = (*found, located.finding)
-
-        def transform(text: str) -> str:
-            findings = by_text.get(text, ())
-            if not findings:
-                return text
-            result = self._masking_engine.mask(
-                text,
-                tuple(sorted(findings, key=lambda finding: finding.start)),
-                request_context.masking_context,
-                {},
+    def mask(self, payload: dict[str, Any], request_context: GatewayRequestContext) -> dict[str, Any]:
+        """Apply decisions by payload location, never by duplicate text value."""
+        if request_context.shadow:
+            return payload
+        if any(item.decision.action is Action.BLOCK for item in request_context.decisions):
+            raise BlockedContentError("blocked by policy")
+        by_path: dict[tuple[str | int, ...], list[tuple[Finding, MaskingMode]]] = {}
+        for located, evaluated in zip(request_context.findings, request_context.decisions, strict=True):
+            by_path.setdefault(located.location.path, []).append(
+                (located.finding, MaskingMode(evaluated.decision.action))
             )
-            return result.text
 
-        return replace_text(payload, transform)
+        def walk(value: Any, path: tuple[str | int, ...]) -> Any:
+            if isinstance(value, str):
+                entries = by_path.get(path, [])
+                if not entries:
+                    return value
+                findings = tuple(item[0] for item in sorted(entries, key=lambda item: item[0].start))
+                modes = {item[0].entity_type: item[1] for item in entries}
+                return self._masking_engine.mask(value, findings, request_context.masking_context, modes).text
+            if isinstance(value, list):
+                return [walk(child, path + (index,)) for index, child in enumerate(value)]
+            if isinstance(value, dict):
+                return {key: walk(child, path + (key,)) for key, child in value.items()}
+            return value
+
+        result = walk(payload, ())
+        if not isinstance(result, dict):
+            raise TypeError("gateway payload must remain an object")
+        return result
 
     def restore(
         self, payload: dict[str, Any], request_context: GatewayRequestContext
@@ -104,10 +141,7 @@ class ProviderRegistry:
         return replace_text(payload, lambda text: restore_text(text, reverse_map))
 
     async def complete(
-        self,
-        protocol: str,
-        payload: dict[str, Any],
-        request_context: GatewayRequestContext,
+        self, protocol: str, payload: dict[str, Any], request_context: GatewayRequestContext
     ) -> ProviderResult:
         for index, provider in enumerate(self._chain(payload["model"])):
             try:
@@ -117,9 +151,7 @@ class ProviderRegistry:
                 continue
         raise TimeoutError("all providers failed")
 
-    async def stream(
-        self, protocol: str, payload: dict[str, Any]
-    ) -> tuple[AsyncIterator[str], bool]:
+    async def stream(self, protocol: str, payload: dict[str, Any]) -> tuple[AsyncIterator[str], bool]:
         for index, provider in enumerate(self._chain(payload["model"])):
             try:
                 iterator = provider.stream(protocol, payload)
