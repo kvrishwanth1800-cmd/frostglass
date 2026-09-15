@@ -6,7 +6,7 @@ from collections.abc import Iterable, Iterator, Mapping
 
 
 class StreamRestorer:
-    """Restore surrogates without emitting a possible partial surrogate."""
+    """Restore surrogates without emitting any partial surrogate."""
 
     def __init__(self, reverse_map: Mapping[str, str], latency_cap: int = 256) -> None:
         self._reverse_map = dict(reverse_map)
@@ -17,19 +17,29 @@ class StreamRestorer:
         self._buffer = ""
 
     def feed(self, chunk: str) -> str:
-        """Buffer a chunk and emit only text that cannot start a surrogate."""
+        """Buffer a chunk and emit text that cannot be part of a pending match."""
         self._buffer += chunk
         if self._tail_length == 0:
             emitted, self._buffer = self._buffer, ""
             return emitted
-        if len(self._buffer) <= self._tail_length:
+        cut = len(self._buffer) - self._tail_length
+        if cut <= 0:
             return ""
-        emitted = self._buffer[: -self._tail_length]
-        self._buffer = self._buffer[-self._tail_length :]
-        return restore_text(emitted, self._reverse_map)
+        for surrogate in self._reverse_map:
+            start = self._buffer.find(surrogate)
+            while start >= 0:
+                end = start + len(surrogate)
+                if start < cut < end:
+                    cut = start
+                start = self._buffer.find(surrogate, start + 1)
+        if cut <= 0:
+            return ""
+        emitted = restore_text(self._buffer[:cut], self._reverse_map)
+        self._buffer = self._buffer[cut:]
+        return emitted
 
     def finish(self) -> str:
-        """Restore and flush the remaining tail when the stream ends."""
+        """Restore and flush the remaining raw tail when the stream ends."""
         remaining, self._buffer = self._buffer, ""
         return restore_text(remaining, self._reverse_map)
 
