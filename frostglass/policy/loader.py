@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import replace
 from typing import Any
 
 import yaml
@@ -56,7 +55,9 @@ def _rule(raw: object) -> Rule:
     entity_types = raw.get("entity_types")
     if not isinstance(rule_id, str) or not rule_id:
         raise ValueError("rule id must be a non-empty string")
-    if not isinstance(entity_types, list) or not all(isinstance(item, str) and item for item in entity_types):
+    if not isinstance(entity_types, list) or not all(
+        isinstance(item, str) and item for item in entity_types
+    ):
         raise ValueError("rule entity_types must be a non-empty string list")
     confidence = raw.get("min_confidence", 0.0)
     if not isinstance(confidence, (int, float)) or not 0.0 <= float(confidence) <= 1.0:
@@ -75,7 +76,11 @@ def _rule(raw: object) -> Rule:
         frozenset(entity_types),
         _action(raw.get("action", "pseudonymize")),
         float(confidence),
-        Scope(_names(scope_raw.get("users"), "users"), _names(scope_raw.get("teams"), "teams"), _names(scope_raw.get("models"), "models")),
+        Scope(
+            _names(scope_raw.get("users"), "users"),
+            _names(scope_raw.get("teams"), "teams"),
+            _names(scope_raw.get("models"), "models"),
+        ),
         reason,
         consistency,
     )
