@@ -40,5 +40,5 @@ def test_detection_finds_prompt_content_before_policy_blocks_secret() -> None:
     )
 
     assert response.status_code == 403
-    assert response.json()["error"]["type"] == "policy_block"
+    assert response.json()["error"]["type"] == "policy_blocked"
     assert "AKIA1234567890ABCDEF" not in response.text
