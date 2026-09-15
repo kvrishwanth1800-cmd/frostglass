@@ -31,8 +31,9 @@ def test_credit_card_uses_documented_test_range_and_luhn() -> None:
     surrogate = SurrogateGenerator("session-1").generate(
         "CREDIT_CARD", "4111 1111 1111 1111", "card"
     )
-    assert surrogate.startswith("411111")
-    assert len([character for character in surrogate if character.isdigit()]) == 16
+    surrogate_digits = "".join(character for character in surrogate if character.isdigit())
+    assert surrogate_digits.startswith("411111")
+    assert len(surrogate_digits) == 16
     assert _luhn_valid(surrogate)
 
 
@@ -47,7 +48,7 @@ def test_money_preserves_bucket_and_precision() -> None:
     surrogate = SurrogateGenerator("session-1").generate("MONEY", "$1,240.50", "money")
     value = Decimal(surrogate.removeprefix("$").replace(",", ""))
     assert Decimal("1000") <= value < Decimal("10000")
-    assert surrogate.split(".")[1] == "50" or len(surrogate.split(".")[1]) == 2
+    assert len(surrogate.split(".")[1]) == 2
 
 
 def test_number_at_bucket_boundary_stays_in_bucket() -> None:
