@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from frostglass.policy.models import Action, Decision, Rule, RuleSet, action_restrictiveness
+from frostglass.policy.models import Action, Decision, RuleSet, action_restrictiveness
 
 
 def decide(
@@ -10,9 +10,7 @@ def decide(
 ) -> Decision:
     """Choose block first, then scope specificity, then restrictive action."""
     matched = [
-        rule
-        for rule in ruleset.rules
-        if rule.matches(entity_type, confidence, user, team, model)
+        rule for rule in ruleset.rules if rule.matches(entity_type, confidence, user, team, model)
     ]
     if not matched:
         return Decision(

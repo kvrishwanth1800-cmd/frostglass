@@ -110,7 +110,12 @@ def test_ac_m1_05_budget_and_rate_limit_errors() -> None:
     )
     assert budget.status_code == 402
     rate_headers = {"Authorization": "Bearer fg-live-rate-key"}
-    assert test_client.post("/v1/chat/completions", headers=rate_headers, json=chat_payload()).status_code == 200
+    assert (
+        test_client.post(
+            "/v1/chat/completions", headers=rate_headers, json=chat_payload()
+        ).status_code
+        == 200
+    )
     limited = test_client.post("/v1/chat/completions", headers=rate_headers, json=chat_payload())
     assert limited.status_code == 429
     assert limited.headers["retry-after"] == "60"

@@ -78,7 +78,9 @@ def configure(
             )
         result = await providers.complete("openai", outbound_payload, request_context)
         limits.record_spend(principal)
-        return JSONResponse(result.payload, headers=_headers(request_id, result.fallback_used, request_context))
+        return JSONResponse(
+            result.payload, headers=_headers(request_id, result.fallback_used, request_context)
+        )
 
     @router.post("/v1/chat/completions", response_model=None)
     async def chat_completions(

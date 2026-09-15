@@ -61,4 +61,6 @@ def configure(
             )
         result = await providers.complete("anthropic", outbound_payload, request_context)
         limits.record_spend(principal)
-        return JSONResponse(result.payload, headers=_headers(request_id, result.fallback_used, request_context))
+        return JSONResponse(
+            result.payload, headers=_headers(request_id, result.fallback_used, request_context)
+        )

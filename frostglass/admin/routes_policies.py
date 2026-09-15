@@ -37,7 +37,9 @@ def configure(
             request.text, DetectionContext(tenant_id=request.team, tenant_salt=tenant_salt)
         )
         evaluations = policy_engine.evaluate(findings, request.user, request.team, request.model)
-        modes = {item.finding.entity_type: MaskingMode(item.decision.action) for item in evaluations}
+        modes = {
+            item.finding.entity_type: MaskingMode(item.decision.action) for item in evaluations
+        }
         context = MaskingContext(request.team, "policy-test", "policy-test")
         try:
             masked_text = masking_engine.mask(request.text, findings, context, modes).text

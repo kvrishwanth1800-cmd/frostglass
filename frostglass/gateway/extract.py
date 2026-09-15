@@ -41,7 +41,9 @@ def extract_text(payload: Any) -> list[TextLocation]:
                 continue
             function = call.get("function")
             if isinstance(function, dict) and isinstance(function.get("arguments"), str):
-                found.append(TextLocation(path + (index, "function", "arguments"), function["arguments"]))
+                found.append(
+                    TextLocation(path + (index, "function", "arguments"), function["arguments"])
+                )
             if isinstance(call.get("input"), str):
                 found.append(TextLocation(path + (index, "input"), call["input"]))
 
@@ -66,7 +68,9 @@ def extract_text(payload: Any) -> list[TextLocation]:
             base = ("tools", index)
             function = tool.get("function")
             if isinstance(function, dict) and isinstance(function.get("description"), str):
-                found.append(TextLocation(base + ("function", "description"), function["description"]))
+                found.append(
+                    TextLocation(base + ("function", "description"), function["description"])
+                )
             if isinstance(tool.get("description"), str):
                 found.append(TextLocation(base + ("description",), tool["description"]))
     return found

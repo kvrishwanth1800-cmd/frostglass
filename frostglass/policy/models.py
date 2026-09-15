@@ -63,7 +63,9 @@ class Rule:
     reason: str = "Matched policy rule."
     consistency: str | None = None
 
-    def matches(self, entity_type: str, confidence: float, user: str, team: str, model: str) -> bool:
+    def matches(
+        self, entity_type: str, confidence: float, user: str, team: str, model: str
+    ) -> bool:
         return (
             entity_type in self.entity_types
             and confidence >= self.min_confidence

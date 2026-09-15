@@ -22,7 +22,10 @@ def _rule(rule_id: str, action: Action, scope: Scope) -> Rule:
     return Rule(rule_id, frozenset({"PERSON"}), action, scope=scope)
 
 
-@pytest.mark.parametrize("first_action,second_action,first_scope,second_scope", product(_ACTIONS, _ACTIONS, _SCOPES, _SCOPES))
+@pytest.mark.parametrize(
+    "first_action,second_action,first_scope,second_scope",
+    product(_ACTIONS, _ACTIONS, _SCOPES, _SCOPES),
+)
 def test_ac_m4_01_precedence_covers_every_ordering_pair(
     first_action: Action, second_action: Action, first_scope: Scope, second_scope: Scope
 ) -> None:
