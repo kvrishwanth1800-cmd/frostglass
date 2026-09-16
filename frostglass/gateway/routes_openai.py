@@ -17,8 +17,6 @@ from frostglass.gateway.pipeline import GatewayRequestContext, ProviderRegistry
 from frostglass.masking.engine import BlockedContentError
 from frostglass.masking.models import MaskingContext
 
-router = APIRouter()
-
 
 def _headers(
     request_id: str, fallback_used: bool, request_context: GatewayRequestContext
@@ -41,12 +39,15 @@ def _validate_model(payload: dict[str, Any], allowed_models: frozenset[str]) -> 
         raise gateway_error(403, "Model is not allowed for this key", "permission_error")
 
 
-def configure(
+def create_router(
     key_store: VirtualKeyStore,
     limits: Limits,
     providers: ProviderRegistry,
     tenant_salt: str,
-) -> None:
+) -> APIRouter:
+    """Create OpenAI routes bound to one application instance."""
+    router = APIRouter()
+
     async def handle(
         payload: dict[str, Any], authorization: str | None, request: Request
     ) -> JSONResponse | StreamingResponse:
@@ -82,7 +83,8 @@ def configure(
         result = await providers.complete("openai", masked_payload, request_context)
         limits.record_spend(principal)
         return JSONResponse(
-            result.payload, headers=_headers(request_id, result.fallback_used, request_context)
+            result.payload,
+            headers=_headers(request_id, result.fallback_used, request_context),
         )
 
     @router.post("/v1/chat/completions", response_model=None)
@@ -102,3 +104,5 @@ def configure(
         if not isinstance(payload, dict):
             raise gateway_error(400, "Request body must be an object", "invalid_request_error")
         return await handle(payload, authorization, request)
+
+    return router

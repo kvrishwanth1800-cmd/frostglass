@@ -24,10 +24,7 @@ def test_detection_finds_prompt_content_before_policy_blocks_secret(
     payload = {
         "model": "mock-model",
         "messages": [
-            {
-                "role": "system",
-                "content": "Follow the policy for 4111 1111 1111 1111.",
-            },
+            {"role": "system", "content": "Follow the policy for 4111 1111 1111 1111."},
             {"role": "user", "content": "Please run the customer lookup."},
             {
                 "role": "assistant",
@@ -35,7 +32,7 @@ def test_detection_finds_prompt_content_before_policy_blocks_secret(
                     {
                         "function": {
                             "name": "lookup_customer",
-                            "arguments": '{"access_key": "AKIA1234567890ABCDEF"}',
+                            "arguments": '{"access_key":"AKIA1234567890ABCDEF"}',
                         }
                     }
                 ],
@@ -43,12 +40,34 @@ def test_detection_finds_prompt_content_before_policy_blocks_secret(
         ],
     }
 
-    response = TestClient(create_app()).post(
-        "/v1/chat/completions",
-        headers=_KEY,
-        json=payload,
-    )
+    response = TestClient(create_app()).post("/v1/chat/completions", headers=_KEY, json=payload)
 
     assert response.status_code == 403
     assert response.json()["error"]["type"] == "policy_blocked"
     assert "AKIA1234567890ABCDEF" not in response.text
+
+
+def test_app_instances_use_their_own_policy_databases(monkeypatch: object, tmp_path: Path) -> None:
+    """A later app factory call must not dispatch through an earlier app's routes."""
+    enforcing_database = str(tmp_path / "enforcing.sqlite3")
+    shadow_database = str(tmp_path / "shadow.sqlite3")
+    PolicyStore(enforcing_database, default_ruleset()).set_shadow_for_team("test-team", False)
+    PolicyStore(shadow_database, default_ruleset()).set_shadow_for_team("test-team", True)
+    payload = {
+        "model": "mock-model",
+        "messages": [{"role": "user", "content": "Use AKIA1234567890ABCDEF."}],
+    }
+
+    monkeypatch.setenv("FG_POLICY_DATABASE_PATH", enforcing_database)  # type: ignore[union-attr]
+    enforcing_response = TestClient(create_app()).post(
+        "/v1/chat/completions", headers=_KEY, json=payload
+    )
+    monkeypatch.setenv("FG_POLICY_DATABASE_PATH", shadow_database)  # type: ignore[union-attr]
+    shadow_response = TestClient(create_app()).post(
+        "/v1/chat/completions", headers=_KEY, json=payload
+    )
+
+    assert enforcing_response.status_code == 403
+    assert enforcing_response.json()["error"]["type"] == "policy_blocked"
+    assert shadow_response.status_code == 200
+    assert shadow_response.headers["x-frostglass-action"] == "shadow"

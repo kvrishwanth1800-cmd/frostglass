@@ -13,8 +13,6 @@ from frostglass.masking.engine import BlockedContentError, MaskingEngine
 from frostglass.masking.models import MaskingContext, MaskingMode
 from frostglass.policy.engine import PolicyEngine
 
-router = APIRouter(prefix="/admin/policy", tags=["policy"])
-
 
 class PolicyTestRequest(BaseModel):
     """The dashboard sandbox request. It cannot select a provider."""
@@ -25,16 +23,20 @@ class PolicyTestRequest(BaseModel):
     model: str = "policy-test-model"
 
 
-def configure(
+def create_router(
     detection_engine: DetectionEngine,
     policy_engine: PolicyEngine,
     masking_engine: MaskingEngine,
     tenant_salt: str,
-) -> None:
+) -> APIRouter:
+    """Create policy test routes bound to one application instance."""
+    router = APIRouter(prefix="/admin/policy", tags=["policy"])
+
     @router.post("/test")
     async def test_policy(request: PolicyTestRequest) -> dict[str, Any]:
         findings = detection_engine.detect(
-            request.text, DetectionContext(tenant_id=request.team, tenant_salt=tenant_salt)
+            request.text,
+            DetectionContext(tenant_id=request.team, tenant_salt=tenant_salt),
         )
         evaluations = policy_engine.evaluate(findings, request.user, request.team, request.model)
         modes = {
@@ -61,3 +63,5 @@ def configure(
             ],
             "masked_text": masked_text,
         }
+
+    return router

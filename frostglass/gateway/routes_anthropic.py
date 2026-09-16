@@ -17,15 +17,16 @@ from frostglass.gateway.routes_openai import _headers, _validate_model
 from frostglass.masking.engine import BlockedContentError
 from frostglass.masking.models import MaskingContext
 
-router = APIRouter()
 
-
-def configure(
+def create_router(
     key_store: VirtualKeyStore,
     limits: Limits,
     providers: ProviderRegistry,
     tenant_salt: str,
-) -> None:
+) -> APIRouter:
+    """Create Anthropic routes bound to one application instance."""
+    router = APIRouter()
+
     @router.post("/v1/messages", response_model=None)
     async def messages(
         request: Request,
@@ -66,5 +67,8 @@ def configure(
         result = await providers.complete("anthropic", masked_payload, request_context)
         limits.record_spend(principal)
         return JSONResponse(
-            result.payload, headers=_headers(request_id, result.fallback_used, request_context)
+            result.payload,
+            headers=_headers(request_id, result.fallback_used, request_context),
         )
+
+    return router
