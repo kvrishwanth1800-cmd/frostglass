@@ -2,7 +2,7 @@
 
 **Current milestone:** M4 - Policy engine and shadow mode, in progress
 **Branch:** m4-policy
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-17
 
 ## Milestone progress
 - [x] M0 Repository foundation - complete. AC-M0 criteria passed. Merged in PR #1.
@@ -30,6 +30,9 @@
 
 ## M5 first priority
 - [ ] Wire `policy_version` and counterfactual decision data into the durable audit persistence layer.
+
+## Flagged for later (not an M4 fix)
+- Detection-engine model lifecycle: `build_detection_engine()` constructs a fresh `NerDetector`, which loads the ~650MB spaCy `en_core_web_lg` model on every call. Each `create_app()` therefore loads its own model copy. If `create_app()` runs more than once in a live process (which the M4 router-isolation bug proved can happen under some reload/redeploy patterns), resident memory grows by ~650MB per call. Part N budgets <=1.5GB steady-state with the NER model loaded, which implies exactly one resident model instance. Formalize the detection-engine lifecycle (a single shared or cached model) in the M8 hardening pass, or wherever detection-engine lifecycle is defined. This surfaced as CI runner kills when the M4 extraction-security tests each built their own app; that test-side issue is fixed with a shared module-scoped fixture, but the underlying production concern remains.
 
 ## Notes for the next session
 - Policy snapshots and per-team shadow settings use `FG_POLICY_DATABASE_PATH`, defaulting to `frostglass-policy.sqlite3`.
