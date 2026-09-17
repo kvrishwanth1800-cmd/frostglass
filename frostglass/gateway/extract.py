@@ -65,7 +65,7 @@ def extract_text(payload: Any) -> list[TextLocation]:
             return
         if isinstance(block.get("text"), str):
             found.append(TextLocation(path + ("text",), block["text"]))
-        if isinstance(block.get("input"), (dict, list)):
+        if isinstance(block.get("input"), dict | list):
             collect_json(block["input"], path + ("input",))
         if "content" in block:
             collect_content(block["content"], path + ("content",))
@@ -89,7 +89,7 @@ def extract_text(payload: Any) -> list[TextLocation]:
                 found.append(
                     TextLocation(path + (index, "function", "arguments"), function["arguments"])
                 )
-            if isinstance(call.get("input"), (dict, list)):
+            if isinstance(call.get("input"), dict | list):
                 collect_json(call["input"], path + (index, "input"))
 
     if not isinstance(payload, dict):
@@ -114,7 +114,7 @@ def extract_text(payload: Any) -> list[TextLocation]:
             base = ("tools", index)
             if isinstance(tool.get("description"), str):
                 found.append(TextLocation(base + ("description",), tool["description"]))
-            if isinstance(tool.get("input_schema"), (dict, list)):
+            if isinstance(tool.get("input_schema"), dict | list):
                 collect_schema(tool["input_schema"], base + ("input_schema",))
             function = tool.get("function")
             if isinstance(function, dict):
@@ -122,7 +122,7 @@ def extract_text(payload: Any) -> list[TextLocation]:
                     found.append(
                         TextLocation(base + ("function", "description"), function["description"])
                     )
-                if isinstance(function.get("parameters"), (dict, list)):
+                if isinstance(function.get("parameters"), dict | list):
                     collect_schema(function["parameters"], base + ("function", "parameters"))
     input_value = payload.get("input")
     if isinstance(input_value, str):
