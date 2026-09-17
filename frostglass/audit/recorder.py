@@ -80,11 +80,7 @@ class AuditRecorder:
             trace=trace,
         )
         sealed_capture = None
-        if (
-            self._capture is not None
-            and masked_payload is not None
-            and not request_context.shadow
-        ):
+        if self._capture is not None and masked_payload is not None and not request_context.shadow:
             sealed_capture = self._capture.seal(masked_payload)
         self._store.record_request(record, sealed_capture)
         return request_id

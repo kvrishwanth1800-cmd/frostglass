@@ -107,6 +107,4 @@ class AdminIdentity:
     def require(self, permission: Permission) -> None:
         """Raise 403 unless this identity holds the permission."""
         if not self.can(permission):
-            raise gateway_error(
-                403, "Insufficient role for this action", "permission_error"
-            )
+            raise gateway_error(403, "Insufficient role for this action", "permission_error")

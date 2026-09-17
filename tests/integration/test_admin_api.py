@@ -89,15 +89,11 @@ def test_dictionaries_teams_keys_and_settings(client: TestClient) -> None:
 
     team = client.post("/admin/teams", headers=OWNER, json={"name": "payments"})
     assert team.status_code == 200
-    key = client.post(
-        "/admin/keys", headers=OWNER, json={"team": "payments", "name": "ci-key"}
-    )
+    key = client.post("/admin/keys", headers=OWNER, json={"team": "payments", "name": "ci-key"})
     assert key.status_code == 200
     assert key.json()["key"].startswith("fg-live-")
 
-    settings = client.patch(
-        "/admin/settings", headers=OWNER, json={"audit_retention_days": 45}
-    )
+    settings = client.patch("/admin/settings", headers=OWNER, json={"audit_retention_days": 45})
     assert settings.status_code == 200
     assert settings.json()["audit_retention_days"] == 45
 
