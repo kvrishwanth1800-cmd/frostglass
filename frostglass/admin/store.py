@@ -20,6 +20,7 @@ from typing import Any
 
 from frostglass.admin.rbac import AdminIdentity, Role
 
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS admin_sessions (
     token_hash TEXT PRIMARY KEY,
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS teams (
     shadow_mode INTEGER NOT NULL DEFAULT 1,
     monthly_budget_cents INTEGER NOT NULL DEFAULT 0,
     rate_limit_rpm INTEGER NOT NULL DEFAULT 60,
+    allowed_models TEXT NOT NULL DEFAULT '[]',
     content_capture_enabled INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS api_keys (
@@ -89,9 +91,32 @@ CREATE TABLE IF NOT EXISTS settings (
     tenant_id TEXT PRIMARY KEY,
     audit_retention_days INTEGER NOT NULL DEFAULT 90,
     capture_retention_days INTEGER NOT NULL DEFAULT 7,
-    content_capture_enabled INTEGER NOT NULL DEFAULT 0
+    content_capture_enabled INTEGER NOT NULL DEFAULT 0,
+    sso_enabled INTEGER NOT NULL DEFAULT 0,
+    sso_provider TEXT,
+    sso_client_id TEXT,
+    vault_key_rotated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS provider_credentials (
+    tenant_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    key_last4 TEXT NOT NULL,
+    key_hash TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (tenant_id, provider)
 );
 """
+
+# Columns added after the initial M5 schema. SQLite has no IF NOT EXISTS for
+# ADD COLUMN, so each is attempted and the duplicate-column error is ignored,
+# letting an existing dev database migrate forward without a separate tool.
+_MIGRATIONS = (
+    "ALTER TABLE teams ADD COLUMN allowed_models TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE settings ADD COLUMN sso_enabled INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN sso_provider TEXT",
+    "ALTER TABLE settings ADD COLUMN sso_client_id TEXT",
+    "ALTER TABLE settings ADD COLUMN vault_key_rotated_at TEXT",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +134,12 @@ class AdminStore:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
         self._connection.executescript(_SCHEMA)
+        for statement in _MIGRATIONS:
+            try:
+                self._connection.execute(statement)
+            except sqlite3.OperationalError:
+                # Column already present on a database created by this schema.
+                pass
         self._connection.commit()
 
     # -- sessions and identity -------------------------------------------------
@@ -181,18 +212,67 @@ class AdminStore:
         shadow_mode: bool = True,
         monthly_budget_cents: int = 0,
         rate_limit_rpm: int = 60,
+        allowed_models: list[str] | None = None,
     ) -> str:
         team_id = uuid.uuid4().hex
         self._connection.execute(
             """
             INSERT INTO teams(id, tenant_id, name, shadow_mode, monthly_budget_cents,
-                              rate_limit_rpm)
-            VALUES (?, ?, ?, ?, ?, ?)
+                              rate_limit_rpm, allowed_models)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (team_id, tenant_id, name, int(shadow_mode), monthly_budget_cents, rate_limit_rpm),
+            (
+                team_id,
+                tenant_id,
+                name,
+                int(shadow_mode),
+                monthly_budget_cents,
+                rate_limit_rpm,
+                json.dumps(allowed_models or [], separators=(",", ":")),
+            ),
         )
         self._connection.commit()
         return team_id
+
+    def get_team(self, tenant_id: str, team_id: str) -> sqlite3.Row | None:
+        return self._connection.execute(
+            "SELECT * FROM teams WHERE tenant_id = ? AND id = ?", (tenant_id, team_id)
+        ).fetchone()
+
+    def update_team(
+        self,
+        tenant_id: str,
+        team_id: str,
+        *,
+        shadow_mode: bool | None = None,
+        monthly_budget_cents: int | None = None,
+        rate_limit_rpm: int | None = None,
+        allowed_models: list[str] | None = None,
+    ) -> sqlite3.Row | None:
+        current = self.get_team(tenant_id, team_id)
+        if current is None:
+            return None
+        self._connection.execute(
+            """
+            UPDATE teams SET shadow_mode = ?, monthly_budget_cents = ?, rate_limit_rpm = ?,
+                             allowed_models = ?
+            WHERE tenant_id = ? AND id = ?
+            """,
+            (
+                int(current["shadow_mode"] if shadow_mode is None else shadow_mode),
+                current["monthly_budget_cents"]
+                if monthly_budget_cents is None
+                else monthly_budget_cents,
+                current["rate_limit_rpm"] if rate_limit_rpm is None else rate_limit_rpm,
+                current["allowed_models"]
+                if allowed_models is None
+                else json.dumps(allowed_models, separators=(",", ":")),
+                tenant_id,
+                team_id,
+            ),
+        )
+        self._connection.commit()
+        return self.get_team(tenant_id, team_id)
 
     def list_teams(self, tenant_id: str) -> list[sqlite3.Row]:
         return self._connection.execute(
@@ -393,12 +473,16 @@ class AdminStore:
         audit_retention_days: int | None = None,
         capture_retention_days: int | None = None,
         content_capture_enabled: bool | None = None,
+        sso_enabled: bool | None = None,
+        sso_provider: str | None = None,
+        sso_client_id: str | None = None,
     ) -> sqlite3.Row:
         current = self.get_settings(tenant_id)
         self._connection.execute(
             """
             UPDATE settings SET audit_retention_days = ?, capture_retention_days = ?,
-                                content_capture_enabled = ?
+                                content_capture_enabled = ?, sso_enabled = ?,
+                                sso_provider = ?, sso_client_id = ?
             WHERE tenant_id = ?
             """,
             (
@@ -413,8 +497,52 @@ class AdminStore:
                     if content_capture_enabled is None
                     else content_capture_enabled
                 ),
+                int(current["sso_enabled"] if sso_enabled is None else sso_enabled),
+                current["sso_provider"] if sso_provider is None else sso_provider,
+                current["sso_client_id"] if sso_client_id is None else sso_client_id,
                 tenant_id,
             ),
         )
         self._connection.commit()
         return self.get_settings(tenant_id)
+
+    def rotate_vault_key(self, tenant_id: str, when: datetime | None = None) -> sqlite3.Row:
+        """Record a vault-key rotation timestamp (status surfaced in Settings)."""
+        self.get_settings(tenant_id)
+        self._connection.execute(
+            "UPDATE settings SET vault_key_rotated_at = ? WHERE tenant_id = ?",
+            ((when or datetime.now(UTC)).isoformat(), tenant_id),
+        )
+        self._connection.commit()
+        return self.get_settings(tenant_id)
+
+    # -- provider credentials (write-only) ------------------------------------
+    def set_provider_credential(self, tenant_id: str, provider: str, secret: str) -> None:
+        """Store a vendor key write-only: keep only its last 4 chars and a hash.
+
+        The secret itself is never persisted and never rendered back to the
+        browser (H.6.2 page 8, Part M).
+        """
+        self._connection.execute(
+            """
+            INSERT OR REPLACE INTO provider_credentials(
+                tenant_id, provider, key_last4, key_hash, updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                tenant_id,
+                provider,
+                secret[-4:],
+                sha256(secret.encode()).hexdigest(),
+                datetime.now(UTC).isoformat(),
+            ),
+        )
+        self._connection.commit()
+
+    def list_provider_credentials(self, tenant_id: str) -> list[sqlite3.Row]:
+        """List configured provider credentials without exposing any secret."""
+        return self._connection.execute(
+            "SELECT provider, key_last4, updated_at FROM provider_credentials "
+            "WHERE tenant_id = ? ORDER BY provider",
+            (tenant_id,),
+        ).fetchall()
