@@ -42,8 +42,8 @@ jobs:
         with:
           path: ~/.cache/pip
           key: spacy-en-core-web-lg-3.7.1-${{ matrix.python-version }}
-      - run: pip install '.[dev]'
-      - run: pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl
+      - run: pip install -q '.[dev]'
+      - run: pip install -q https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl
       - run: pytest
 
   detection-accuracy:
