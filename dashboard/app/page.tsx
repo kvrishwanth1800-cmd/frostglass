@@ -88,8 +88,7 @@ export default function OverviewPage() {
           <LoadingState label="Aggregating" />
         ) : (
           <>
-            {stats.top_teams.some((team) => false) ? null : null}
-            <ShadowBanner shadowTeams={stats.top_teams.length} />
+            <ShadowBanner />
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <Stat label="Requests today" value={String(stats.totals.today)} />
@@ -165,7 +164,7 @@ export default function OverviewPage() {
 
 // Persistent banner while any team is in shadow mode (H.6.2 page 1). It reads
 // team shadow state from the Access API so the count is real, not inferred.
-function ShadowBanner({ shadowTeams }: { shadowTeams: number }) {
+function ShadowBanner() {
   const { session } = useSession();
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
