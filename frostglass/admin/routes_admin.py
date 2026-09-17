@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import APIRouter, Header, Query
@@ -12,8 +13,11 @@ from frostglass.admin.rbac import AdminIdentity, Permission, Role
 from frostglass.admin.store import AdminStore
 from frostglass.audit.store import AuditStore
 from frostglass.errors import gateway_error
+from frostglass.policy.engine import PolicyEngine
 
 _MAX_LIMIT = 100
+
+DryRunHandler = Callable[[Any], Awaitable[dict[str, Any]]]
 
 
 class TeamCreate(BaseModel):
@@ -53,7 +57,34 @@ class SettingsPatch(BaseModel):
     content_capture_enabled: bool | None = None
 
 
-def create_router(audit_store: AuditStore, admin_store: AdminStore) -> APIRouter:
+class PolicyCreate(BaseModel):
+    yaml: str = Field(min_length=1)
+
+
+def _ruleset_view(ruleset: Any) -> dict[str, Any]:
+    return {
+        "version": ruleset.version,
+        "default_action": str(ruleset.default_action),
+        "shadow_mode": ruleset.shadow_mode,
+        "rules": [
+            {
+                "id": rule.id,
+                "entity_types": sorted(rule.entity_types),
+                "action": str(rule.action),
+                "min_confidence": rule.min_confidence,
+                "reason": rule.reason,
+            }
+            for rule in ruleset.rules
+        ],
+    }
+
+
+def create_router(
+    audit_store: AuditStore,
+    admin_store: AdminStore,
+    policy_engine: PolicyEngine,
+    dry_run: DryRunHandler,
+) -> APIRouter:
     """Create Admin API routes bound to one application instance."""
     router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -150,6 +181,59 @@ def create_router(audit_store: AuditStore, admin_store: AdminStore) -> APIRouter
             raise gateway_error(404, "Finding not found", "not_found")
         admin_store.record_event(identity, "finding.false_positive", finding_id)
         return {"finding_id": finding_id, "false_positive_reported": True}
+
+    @router.get("/policies")
+    async def get_policies(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.READ_POLICY)
+        return _ruleset_view(policy_engine.ruleset)
+
+    @router.get("/policies/versions")
+    async def list_policy_versions(
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.READ_POLICY)
+        return {
+            "active_version": policy_engine.version,
+            "versions": [_ruleset_view(ruleset) for ruleset in policy_engine.versions()],
+        }
+
+    @router.post("/policies")
+    async def create_policy(
+        body: PolicyCreate, authorization: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.WRITE_POLICY)
+        try:
+            written = policy_engine.add_version(body.yaml)
+        except ValueError as error:
+            raise gateway_error(400, str(error), "invalid_request_error") from error
+        admin_store.record_event(
+            identity, "policy.create", str(written.version), after={"version": written.version}
+        )
+        return _ruleset_view(written)
+
+    @router.post("/policies/{version}/activate")
+    async def activate_policy(
+        version: int, authorization: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.WRITE_POLICY)
+        try:
+            activated = policy_engine.activate(version)
+        except KeyError as error:
+            raise gateway_error(404, "Policy version not found", "not_found") from error
+        admin_store.record_event(identity, "policy.activate", str(version))
+        return _ruleset_view(activated)
+
+    @router.post("/policies/test")
+    async def test_policy(
+        body: Any, authorization: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.READ_POLICY)
+        return await dry_run(body)
 
     @router.get("/teams")
     async def list_teams(authorization: str | None = Header(default=None)) -> dict[str, Any]:
