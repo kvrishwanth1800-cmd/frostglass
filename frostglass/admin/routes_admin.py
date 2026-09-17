@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import APIRouter, Header, Query
+from fastapi import APIRouter, Body, Header, Query
 from pydantic import BaseModel, Field
 
 from frostglass.admin.pagination import decode_cursor, encode_cursor
@@ -229,7 +229,7 @@ def create_router(
 
     @router.post("/policies/test")
     async def test_policy(
-        body: Any, authorization: str | None = Header(default=None)
+        body: dict[str, Any] = Body(...), authorization: str | None = Header(default=None)
     ) -> dict[str, Any]:
         identity = identify(authorization)
         identity.require(Permission.READ_POLICY)
