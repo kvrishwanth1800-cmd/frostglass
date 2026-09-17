@@ -87,9 +87,7 @@ def extract_text(payload: Any) -> list[TextLocation]:
             function = call.get("function")
             if isinstance(function, dict) and isinstance(function.get("arguments"), str):
                 found.append(
-                    TextLocation(
-                        path + (index, "function", "arguments"), function["arguments"]
-                    )
+                    TextLocation(path + (index, "function", "arguments"), function["arguments"])
                 )
             if isinstance(call.get("input"), (dict, list)):
                 collect_json(call["input"], path + (index, "input"))
@@ -122,9 +120,7 @@ def extract_text(payload: Any) -> list[TextLocation]:
             if isinstance(function, dict):
                 if isinstance(function.get("description"), str):
                     found.append(
-                        TextLocation(
-                            base + ("function", "description"), function["description"]
-                        )
+                        TextLocation(base + ("function", "description"), function["description"])
                     )
                 if isinstance(function.get("parameters"), (dict, list)):
                     collect_schema(function["parameters"], base + ("function", "parameters"))
