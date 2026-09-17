@@ -28,7 +28,12 @@ def test_anthropic_tool_use_input_is_extracted() -> None:
             {
                 "role": "assistant",
                 "content": [
-                    {"type": "tool_use", "id": "t1", "name": "lookup", "input": {"credential": SECRET}},
+                    {
+                        "type": "tool_use",
+                        "id": "t1",
+                        "name": "lookup",
+                        "input": {"credential": SECRET},
+                    }
                 ],
             }
         ],

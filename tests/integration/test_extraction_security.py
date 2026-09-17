@@ -47,7 +47,12 @@ def test_anthropic_tool_use_input_secret_is_blocked(monkeypatch: object, tmp_pat
             {
                 "role": "user",
                 "content": [
-                    {"type": "tool_use", "id": "t1", "name": "lookup", "input": {"credential": SECRET}},
+                    {
+                        "type": "tool_use",
+                        "id": "t1",
+                        "name": "lookup",
+                        "input": {"credential": SECRET},
+                    }
                 ],
             }
         ],
