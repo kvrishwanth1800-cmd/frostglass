@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from frostglass.detection.models import Finding
-from frostglass.policy.loader import PolicyStore
+from frostglass.policy.loader import PolicyStore, load_yaml
 from frostglass.policy.models import Decision, RuleSet
 from frostglass.policy.precedence import decide
 
@@ -35,6 +35,24 @@ class PolicyEngine:
 
     def shadow_for_team(self, team: str) -> bool:
         return self._source.shadow_for_team(team) if isinstance(self._source, PolicyStore) else True
+
+    def versions(self) -> tuple[RuleSet, ...]:
+        """Return every stored policy version, or just the static ruleset."""
+        if isinstance(self._source, PolicyStore):
+            return self._source.versions()
+        return (self._source,)
+
+    def add_version(self, source: str) -> RuleSet:
+        """Parse and persist a new immutable policy version from YAML."""
+        if not isinstance(self._source, PolicyStore):
+            raise RuntimeError("policy versions are read-only for a static ruleset")
+        return self._source.write(load_yaml(source))
+
+    def activate(self, version: int) -> RuleSet:
+        """Activate a stored policy version by number."""
+        if not isinstance(self._source, PolicyStore):
+            raise RuntimeError("policy activation is unavailable for a static ruleset")
+        return self._source.activate(version)
 
     def evaluate(
         self, findings: tuple[Finding, ...], user: str, team: str, model: str
