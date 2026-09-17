@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -276,7 +276,7 @@ class AuditStore:
         now: datetime | None = None,
     ) -> dict[str, Any]:
         """Return the Overview page aggregates in one round trip (H.6.2 page 1)."""
-        moment = now or datetime.now(tz=None)
+        moment = now or datetime.now(UTC)
         window_days = _range_days(range)
         scope, scope_params = self._scope(team)
         conn = self._connection
@@ -423,7 +423,7 @@ class AuditStore:
         Ordered by flagged count desc, then total desc, so "who sent the most
         flagged prompts this week" is the first row.
         """
-        moment = now or datetime.now(tz=None)
+        moment = now or datetime.now(UTC)
         since = (moment - timedelta(days=_range_days(range))).isoformat()
         scope, scope_params = self._scope(team)
         rows = self._connection.execute(
@@ -458,7 +458,7 @@ class AuditStore:
         met each threshold in the window, so moving the slider has a visible,
         real impact estimate rather than an invented number.
         """
-        moment = now or datetime.now(tz=None)
+        moment = now or datetime.now(UTC)
         since = (moment - timedelta(days=_range_days(range))).isoformat()
         scope, scope_params = self._scope(team)
         rows = self._connection.execute(
@@ -484,11 +484,15 @@ class AuditStore:
         return {"range": range, "by_entity_type": estimates}
 
     def false_positive_rate(
-        self, tenant_id: str, *, team: str | None = None, range: str = "7d",
+        self,
+        tenant_id: str,
+        *,
+        team: str | None = None,
+        range: str = "7d",
         now: datetime | None = None,
     ) -> dict[str, Any]:
         """False-positive-report rate over findings in the window (H.6.2 page 3)."""
-        moment = now or datetime.now(tz=None)
+        moment = now or datetime.now(UTC)
         since = (moment - timedelta(days=_range_days(range))).isoformat()
         scope, scope_params = self._scope(team)
         row = self._connection.execute(
