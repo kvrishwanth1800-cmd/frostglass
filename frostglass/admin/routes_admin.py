@@ -163,9 +163,17 @@ def create_router(
         request_id: str, authorization: str | None = Header(default=None)
     ) -> dict[str, Any]:
         identity = identify(authorization)
-        identity.require(Permission.READ_TRACE)
-        if audit_store.get_request(identity.tenant_id, request_id, scope_team(identity)) is None:
+        row = audit_store.get_request(identity.tenant_id, request_id, scope_team(identity))
+        if row is None:
+            # A request that exists elsewhere in the tenant is hidden as a 404 before the
+            # permission gate so a cross-team caller cannot distinguish "forbidden" from
+            # "absent" (AC-M5-05 IDOR). A genuinely unknown id falls through to the
+            # permission check, so a viewer without READ_TRACE still gets 403 (AC-M5-02).
+            if audit_store.get_request(identity.tenant_id, request_id, None) is not None:
+                raise gateway_error(404, "Request not found", "not_found")
+            identity.require(Permission.READ_TRACE)
             raise gateway_error(404, "Request not found", "not_found")
+        identity.require(Permission.READ_TRACE)
         trace = audit_store.request_trace(identity.tenant_id, request_id, scope_team(identity))
         return {"request_id": request_id, "trace": [_finding_view(row) for row in trace]}
 
