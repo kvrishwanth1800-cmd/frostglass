@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from functools import lru_cache
+from functools import cache
 
 from presidio_analyzer import AnalyzerEngine
 from presidio_analyzer.nlp_engine import NlpEngine, NlpEngineProvider
@@ -20,7 +20,7 @@ _ENTITY_MAP = {
 }
 
 
-@lru_cache(maxsize=None)
+@cache
 def _shared_nlp_engine(model_name: str) -> NlpEngine:
     """Build the spaCy NLP engine once per model and share it process-wide.
 
