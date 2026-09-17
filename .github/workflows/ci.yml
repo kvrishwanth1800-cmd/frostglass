@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, m0-foundation, m2-detection]
+    branches: [main, m0-foundation, m2-detection, m5-audit-admin]
   pull_request:
     branches: [main]
 
