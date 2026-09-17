@@ -88,9 +88,7 @@ def create_app() -> FastAPI:
             request.text,
             DetectionContext(tenant_id=request.team, tenant_salt=settings.tenant_salt),
         )
-        evaluations = policy_engine.evaluate(
-            findings, request.user, request.team, request.model
-        )
+        evaluations = policy_engine.evaluate(findings, request.user, request.team, request.model)
         modes = {
             (item.finding.start, item.finding.end): MaskingMode(item.decision.action)
             for item in evaluations
@@ -129,9 +127,7 @@ def create_app() -> FastAPI:
 
     @app.get("/admin/docs", include_in_schema=False)
     async def admin_docs() -> HTMLResponse:
-        return get_swagger_ui_html(
-            openapi_url="/openapi.json", title="Frostglass Admin API"
-        )
+        return get_swagger_ui_html(openapi_url="/openapi.json", title="Frostglass Admin API")
 
     app.include_router(
         create_openai_router(key_store, limits, providers, settings.tenant_salt, recorder)
