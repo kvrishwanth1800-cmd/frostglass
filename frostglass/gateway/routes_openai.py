@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
+from time import perf_counter
 from typing import Any
 
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from frostglass.audit.recorder import AuditRecorder
 from frostglass.detection.models import DetectionContext
 from frostglass.errors import gateway_error
-from frostglass.gateway.auth import VirtualKeyStore
+from frostglass.gateway.auth import Principal, VirtualKeyStore
 from frostglass.gateway.budget import Limits
 from frostglass.gateway.pipeline import GatewayRequestContext, ProviderRegistry
 from frostglass.masking.engine import BlockedContentError
@@ -39,11 +41,43 @@ def _validate_model(payload: dict[str, Any], allowed_models: frozenset[str]) -> 
         raise gateway_error(403, "Model is not allowed for this key", "permission_error")
 
 
+def record_request(
+    recorder: AuditRecorder | None,
+    provider: str,
+    principal: Principal,
+    payload: dict[str, Any],
+    request_context: GatewayRequestContext,
+    started: float,
+    *,
+    status_code: int = 200,
+    blocked_reason: str | None = None,
+    fallback_used: bool | None = None,
+    masked_payload: dict[str, Any] | None = None,
+) -> str | None:
+    """Record one request via the audit recorder. Returns the audit id."""
+    if recorder is None:
+        return None
+    model = payload.get("model")
+    return recorder.record(
+        user=principal.user,
+        team=principal.team,
+        model=model if isinstance(model, str) else "unknown",
+        provider=provider,
+        request_context=request_context,
+        status_code=status_code,
+        blocked_reason=blocked_reason,
+        fallback_used=fallback_used,
+        latency_ms=int((perf_counter() - started) * 1000),
+        masked_payload=masked_payload,
+    )
+
+
 def create_router(
     key_store: VirtualKeyStore,
     limits: Limits,
     providers: ProviderRegistry,
     tenant_salt: str,
+    recorder: AuditRecorder | None = None,
 ) -> APIRouter:
     """Create OpenAI routes bound to one application instance."""
     router = APIRouter()
@@ -51,10 +85,11 @@ def create_router(
     async def handle(
         payload: dict[str, Any], authorization: str | None, request: Request
     ) -> JSONResponse | StreamingResponse:
+        started = perf_counter()
         principal = key_store.resolve(authorization)
         _validate_model(payload, principal.allowed_models)
         limits.check(principal)
-        request_id = request.headers.get("X-Request-Id", "fg-m4-request")
+        request_id = request.headers.get("X-Request-Id", "fg-m5-request")
         request_context = providers.detect(
             payload,
             DetectionContext(tenant_id=principal.team, tenant_salt=tenant_salt),
@@ -66,9 +101,29 @@ def create_router(
         try:
             masked_payload = providers.mask(payload, request_context)
         except BlockedContentError as error:
+            record_request(
+                recorder,
+                "openai",
+                principal,
+                payload,
+                request_context,
+                started,
+                status_code=403,
+                blocked_reason=str(error),
+            )
             raise gateway_error(403, str(error), "policy_blocked") from error
         if payload.get("stream") is True:
             stream, fallback_used = await providers.stream("openai", masked_payload)
+            audit_id = record_request(
+                recorder,
+                "openai",
+                principal,
+                payload,
+                request_context,
+                started,
+                fallback_used=fallback_used,
+                masked_payload=masked_payload,
+            )
 
             async def events() -> AsyncIterator[str]:
                 async for event in stream:
@@ -78,13 +133,23 @@ def create_router(
             return StreamingResponse(
                 events(),
                 media_type="text/event-stream",
-                headers=_headers(request_id, fallback_used, request_context),
+                headers=_headers(audit_id or request_id, fallback_used, request_context),
             )
         result = await providers.complete("openai", masked_payload, request_context)
         limits.record_spend(principal)
+        audit_id = record_request(
+            recorder,
+            "openai",
+            principal,
+            payload,
+            request_context,
+            started,
+            fallback_used=result.fallback_used,
+            masked_payload=masked_payload,
+        )
         return JSONResponse(
             result.payload,
-            headers=_headers(request_id, result.fallback_used, request_context),
+            headers=_headers(audit_id or request_id, result.fallback_used, request_context),
         )
 
     @router.post("/v1/chat/completions", response_model=None)

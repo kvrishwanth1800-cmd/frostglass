@@ -8,3 +8,4 @@ import os
 os.environ.setdefault("FG_VAULT_ENCRYPTION_KEY", base64.b64encode(b"a" * 32).decode())
 os.environ.setdefault("FG_TENANT_SALT", "tenant-salt-for-tests-must-be-long-enough")
 os.environ.setdefault("FG_POLICY_DATABASE_PATH", ":memory:")
+os.environ.setdefault("FG_AUDIT_DATABASE_PATH", ":memory:")
