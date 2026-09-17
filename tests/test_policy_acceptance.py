@@ -52,9 +52,7 @@ def test_ac_m4_04_dry_run_returns_findings_decisions_rules_and_masked_text() -> 
 def test_ac_m4_02_shadow_mode_forwards_original_payload_and_threads_counterfactual() -> None:
     @dataclass(frozen=True)
     class Detector:
-        def detect(
-            self, text: str, context: DetectionContext
-        ) -> tuple[CandidateSpan, ...]:
+        def detect(self, text: str, context: DetectionContext) -> tuple[CandidateSpan, ...]:
             if text != "Avery Stone":
                 return ()
             return (CandidateSpan("PERSON", 0, len(text), 0.99, "test"),)

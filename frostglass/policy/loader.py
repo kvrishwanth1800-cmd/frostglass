@@ -180,11 +180,15 @@ class PolicyStore:
         return _deserialize(row[0])
 
     def versions(self) -> tuple[RuleSet, ...]:
-        rows = self._connection.execute("SELECT payload FROM policy_versions ORDER BY version").fetchall()
+        rows = self._connection.execute(
+            "SELECT payload FROM policy_versions ORDER BY version"
+        ).fetchall()
         return tuple(_deserialize(row[0]) for row in rows)
 
     def write(self, candidate: RuleSet) -> RuleSet:
-        active_versions = self._connection.execute("SELECT MAX(version) FROM policy_versions").fetchone()
+        active_versions = self._connection.execute(
+            "SELECT MAX(version) FROM policy_versions"
+        ).fetchone()
         latest = active_versions[0]
         if latest is not None and candidate.version <= latest:
             raise ValueError("policy versions must increase and cannot be overwritten")
@@ -196,11 +200,16 @@ class PolicyStore:
         return candidate
 
     def activate(self, version: int) -> RuleSet:
-        if self._connection.execute(
-            "SELECT 1 FROM policy_versions WHERE version = ?", (version,)
-        ).fetchone() is None:
+        if (
+            self._connection.execute(
+                "SELECT 1 FROM policy_versions WHERE version = ?", (version,)
+            ).fetchone()
+            is None
+        ):
             raise KeyError(version)
-        self._connection.execute("UPDATE policy_state SET active_version = ? WHERE id = 1", (version,))
+        self._connection.execute(
+            "UPDATE policy_state SET active_version = ? WHERE id = 1", (version,)
+        )
         self._connection.commit()
         return self.active
 
