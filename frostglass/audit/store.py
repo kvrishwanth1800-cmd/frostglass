@@ -91,6 +91,11 @@ class AuditStore:
         self._connection.executescript(_SCHEMA)
         self._connection.commit()
 
+    @property
+    def connection(self) -> sqlite3.Connection:
+        """Expose the shared connection so the admin store can reuse it."""
+        return self._connection
+
     def record_request(
         self, record: RequestRecord, sealed_capture: tuple[bytes, datetime] | None = None
     ) -> None:
@@ -169,6 +174,71 @@ class AuditStore:
             query += " AND team = ?"
             params.append(team)
         return self._connection.execute(query, params).fetchone()
+
+    def list_requests(
+        self,
+        tenant_id: str,
+        *,
+        team: str | None = None,
+        action: str | None = None,
+        limit: int = 50,
+        cursor: tuple[str, str] | None = None,
+    ) -> tuple[list[sqlite3.Row], tuple[str, str] | None]:
+        """Return one keyset page ordered by (ts DESC, id DESC) plus the next cursor.
+
+        ``team`` scopes the result for IDOR safety; ``cursor`` is the (ts, id) of
+        the last row from the previous page. One extra row is fetched to decide
+        whether a further page exists.
+        """
+        query = "SELECT * FROM requests WHERE tenant_id = ?"
+        params: list[object] = [tenant_id]
+        if team is not None:
+            query += " AND team = ?"
+            params.append(team)
+        if action is not None:
+            query += " AND action = ?"
+            params.append(action)
+        if cursor is not None:
+            query += " AND (ts < ? OR (ts = ? AND id < ?))"
+            params.extend([cursor[0], cursor[0], cursor[1]])
+        query += " ORDER BY ts DESC, id DESC LIMIT ?"
+        params.append(limit + 1)
+        rows = self._connection.execute(query, params).fetchall()
+        next_cursor: tuple[str, str] | None = None
+        if len(rows) > limit:
+            rows = rows[:limit]
+            last = rows[-1]
+            next_cursor = (last["ts"], last["id"])
+        return rows, next_cursor
+
+    def request_trace(self, tenant_id: str, request_id: str, team: str | None = None) -> list[sqlite3.Row]:
+        """Return the decision trace (findings) for a tenant/team-scoped request."""
+        if self.get_request(tenant_id, request_id, team) is None:
+            return []
+        return self._connection.execute(
+            "SELECT * FROM findings WHERE request_id = ? ORDER BY span_start, id", (request_id,)
+        ).fetchall()
+
+    def report_false_positive(
+        self, tenant_id: str, finding_id: str, team: str | None = None
+    ) -> bool:
+        """Flag a finding as a false positive, scoped by tenant and team."""
+        row = self._connection.execute(
+            """
+            SELECT findings.id FROM findings
+            JOIN requests ON requests.id = findings.request_id
+            WHERE findings.id = ? AND requests.tenant_id = ?
+            """
+            + (" AND requests.team = ?" if team is not None else ""),
+            [finding_id, tenant_id] + ([team] if team is not None else []),
+        ).fetchone()
+        if row is None:
+            return False
+        self._connection.execute(
+            "UPDATE findings SET false_positive_reported = 1 WHERE id = ?", (finding_id,)
+        )
+        self._connection.commit()
+        return True
 
     def captured_content(self, request_id: str) -> sqlite3.Row | None:
         """Fetch the sealed masked capture for a request, if any."""

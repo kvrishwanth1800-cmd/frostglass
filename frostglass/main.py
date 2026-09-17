@@ -7,7 +7,10 @@ from datetime import timedelta
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from frostglass.admin.rbac import Role
+from frostglass.admin.routes_admin import create_router as create_admin_router
 from frostglass.admin.routes_policies import create_router as create_policy_router
+from frostglass.admin.store import AdminStore
 from frostglass.audit.capture import ContentCapture
 from frostglass.audit.recorder import AuditRecorder
 from frostglass.audit.store import AuditStore
@@ -27,6 +30,26 @@ from frostglass.policy.defaults import build_policy_engine
 
 _DEFAULT_TENANT = "default"
 
+# Local/dev + test session tokens, one per role. Production issues sessions via
+# OIDC in M6; these seeds let the Admin API and its RBAC be exercised now.
+_SESSION_TOKENS: dict[Role, str] = {
+    Role.OWNER: "fg-admin-owner-token",
+    Role.ADMIN: "fg-admin-admin-token",
+    Role.AUDITOR: "fg-admin-auditor-token",
+    Role.VIEWER: "fg-admin-viewer-token",
+}
+
+
+def _seed_admin(admin_store: AdminStore) -> None:
+    """Seed a default tenant with one session per role and a few detectors."""
+    admin_store.upsert_team(_DEFAULT_TENANT, "test-team", shadow_mode=True)
+    admin_store.upsert_team(_DEFAULT_TENANT, "other-team", shadow_mode=True)
+    for role, token in _SESSION_TOKENS.items():
+        team = "other-team" if role is Role.VIEWER else "test-team"
+        admin_store.create_session(token, f"{role}-user", _DEFAULT_TENANT, team, role)
+    for name, kind in (("secret-scanner", "regex"), ("ner", "ml"), ("dictionary", "exact")):
+        admin_store.seed_detector(_DEFAULT_TENANT, name, kind)
+
 
 def create_app() -> FastAPI:
     """Create an application with request handlers isolated to this instance."""
@@ -39,6 +62,8 @@ def create_app() -> FastAPI:
     key_store, limits = default_key_store(), Limits()
     providers = ProviderRegistry(detection_engine, masking_engine, vault, policy_engine)
     audit_store = AuditStore(settings.audit_database_path)
+    admin_store = AdminStore(audit_store.connection)
+    _seed_admin(admin_store)
     capture = (
         ContentCapture(
             settings.vault_encryption_key, timedelta(days=settings.capture_retention_days)
@@ -48,6 +73,7 @@ def create_app() -> FastAPI:
     )
     recorder = AuditRecorder(audit_store, _DEFAULT_TENANT, capture)
     app.state.audit_store = audit_store
+    app.state.admin_store = admin_store
     app.state.audit_recorder = recorder
 
     @app.exception_handler(GatewayError)
@@ -67,6 +93,7 @@ def create_app() -> FastAPI:
     app.include_router(
         create_policy_router(detection_engine, policy_engine, masking_engine, settings.tenant_salt)
     )
+    app.include_router(create_admin_router(audit_store, admin_store))
     app.include_router(metrics_router)
     return app
 
