@@ -45,10 +45,12 @@ class Permission(StrEnum):
     WRITE_SETTINGS = "write_settings"
 
 
+# Reads available to every role, including viewer. Trace is deliberately
+# excluded: it exposes per-finding detail, so it is granted only to auditor
+# and above (AC-M5-02).
 _READS = {
     Permission.READ_STATS,
     Permission.READ_REQUESTS,
-    Permission.READ_TRACE,
     Permission.READ_POLICY,
     Permission.READ_DETECTORS,
     Permission.READ_DICTIONARIES,
@@ -57,18 +59,24 @@ _READS = {
     Permission.READ_SETTINGS,
 }
 
-# viewer: reads dashboards but never captured content and never writes.
-# auditor: viewer plus captured content and false-positive reporting; no writes.
+# viewer: reads dashboards but never traces, captured content, or writes.
+# auditor: viewer plus trace, captured content, and false-positive reporting; no writes.
 # admin: full configuration except ownership-level access management.
 # owner: everything.
 _MATRIX: dict[Role, frozenset[Permission]] = {
     Role.VIEWER: frozenset(_READS),
     Role.AUDITOR: frozenset(
-        _READS | {Permission.READ_CAPTURED_CONTENT, Permission.REPORT_FALSE_POSITIVE}
+        _READS
+        | {
+            Permission.READ_TRACE,
+            Permission.READ_CAPTURED_CONTENT,
+            Permission.REPORT_FALSE_POSITIVE,
+        }
     ),
     Role.ADMIN: frozenset(
         _READS
         | {
+            Permission.READ_TRACE,
             Permission.READ_CAPTURED_CONTENT,
             Permission.REPORT_FALSE_POSITIVE,
             Permission.WRITE_POLICY,
