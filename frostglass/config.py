@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     vault_encryption_key: str = Field(validation_alias="FG_VAULT_ENCRYPTION_KEY")
     tenant_salt: str = Field(validation_alias="FG_TENANT_SALT")
+    policy_database_path: str = Field(
+        default="frostglass-policy.sqlite3", validation_alias="FG_POLICY_DATABASE_PATH"
+    )
     version: str = "0.0.1"
 
     @field_validator("vault_encryption_key")
@@ -48,4 +51,12 @@ class Settings(BaseSettings):
             raise ValueError(
                 "FG_TENANT_SALT must be a non-placeholder value of at least 32 characters"
             )
+        return normalized
+
+    @field_validator("policy_database_path")
+    @classmethod
+    def validate_policy_database_path(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("FG_POLICY_DATABASE_PATH must not be empty")
         return normalized

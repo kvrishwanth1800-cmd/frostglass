@@ -48,14 +48,15 @@ def test_ac_m3_05_surrogate_spans_are_immune() -> None:
 def test_allow_tag_hash_and_block_modes() -> None:
     text = "Avery Stone"
     finding = _finding("PERSON", 0, len(text), "person-hash")
+    span = (0, len(text))
     engine = _engine()
-    assert engine.mask(text, (finding,), _CONTEXT, {"PERSON": MaskingMode.ALLOW}).text == text
-    assert engine.mask(text, (finding,), _CONTEXT, {"PERSON": MaskingMode.TAG}).text == "<PERSON_1>"
-    hashed = engine.mask(text, (finding,), _CONTEXT, {"PERSON": MaskingMode.HASH}).text
+    assert engine.mask(text, (finding,), _CONTEXT, {span: MaskingMode.ALLOW}).text == text
+    assert engine.mask(text, (finding,), _CONTEXT, {span: MaskingMode.TAG}).text == "<PERSON_1>"
+    hashed = engine.mask(text, (finding,), _CONTEXT, {span: MaskingMode.HASH}).text
     assert hashed.startswith("sha256:")
     assert "Avery" not in hashed
     with pytest.raises(BlockedContentError):
-        engine.mask(text, (finding,), _CONTEXT, {"PERSON": MaskingMode.BLOCK})
+        engine.mask(text, (finding,), _CONTEXT, {span: MaskingMode.BLOCK})
 
 
 def test_ac_m3_02_session_identity_is_stable_for_five_turns() -> None:

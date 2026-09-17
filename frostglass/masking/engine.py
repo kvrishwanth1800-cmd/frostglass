@@ -35,9 +35,14 @@ class MaskingEngine:
         text: str,
         findings: tuple[Finding, ...],
         context: MaskingContext,
-        modes: Mapping[str, MaskingMode],
+        modes: Mapping[tuple[int, int], MaskingMode],
     ) -> MaskingResult:
-        """Mask sorted disjoint findings according to their entity-type modes."""
+        """Mask sorted disjoint findings according to their per-finding modes.
+
+        ``modes`` is keyed by each finding's ``(start, end)`` span so that two
+        findings sharing an entity type but assigned different policy decisions
+        never overwrite one another.
+        """
         output: list[str] = []
         immune_spans: list[tuple[int, int]] = []
         cursor = 0
@@ -47,7 +52,7 @@ class MaskingEngine:
                 raise ValueError("findings must be sorted, disjoint, and in range")
             output.append(text[cursor : finding.start])
             original = text[finding.start : finding.end]
-            mode = modes.get(finding.entity_type, MaskingMode.PSEUDONYMIZE)
+            mode = modes.get((finding.start, finding.end), MaskingMode.PSEUDONYMIZE)
             replacement = self._replacement(
                 mode,
                 finding,

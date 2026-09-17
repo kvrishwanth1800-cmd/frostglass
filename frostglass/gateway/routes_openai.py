@@ -14,24 +14,19 @@ from frostglass.errors import gateway_error
 from frostglass.gateway.auth import VirtualKeyStore
 from frostglass.gateway.budget import Limits
 from frostglass.gateway.pipeline import GatewayRequestContext, ProviderRegistry
+from frostglass.masking.engine import BlockedContentError
 from frostglass.masking.models import MaskingContext
-
-router = APIRouter()
 
 
 def _headers(
-    request_id: str,
-    fallback_used: bool,
-    shadow: bool,
-    request_context: GatewayRequestContext,
+    request_id: str, fallback_used: bool, request_context: GatewayRequestContext
 ) -> dict[str, str]:
-    action = "shadow" if shadow else "allowed"
     entity_types = sorted({located.finding.entity_type for located in request_context.findings})
     return {
         "X-Frostglass-Request-Id": request_id,
-        "X-Frostglass-Action": action,
+        "X-Frostglass-Action": request_context.action,
         "X-Frostglass-Entities": json.dumps(entity_types),
-        "X-Frostglass-Policy-Version": "m3",
+        "X-Frostglass-Policy-Version": str(request_context.policy_version),
         "X-Frostglass-Fallback-Used": str(fallback_used).lower(),
     }
 
@@ -44,25 +39,34 @@ def _validate_model(payload: dict[str, Any], allowed_models: frozenset[str]) -> 
         raise gateway_error(403, "Model is not allowed for this key", "permission_error")
 
 
-def configure(
+def create_router(
     key_store: VirtualKeyStore,
     limits: Limits,
     providers: ProviderRegistry,
     tenant_salt: str,
-) -> None:
+) -> APIRouter:
+    """Create OpenAI routes bound to one application instance."""
+    router = APIRouter()
+
     async def handle(
         payload: dict[str, Any], authorization: str | None, request: Request
     ) -> JSONResponse | StreamingResponse:
         principal = key_store.resolve(authorization)
         _validate_model(payload, principal.allowed_models)
         limits.check(principal)
-        request_id = request.headers.get("X-Request-Id", "fg-m3-request")
+        request_id = request.headers.get("X-Request-Id", "fg-m4-request")
         request_context = providers.detect(
             payload,
             DetectionContext(tenant_id=principal.team, tenant_salt=tenant_salt),
             MaskingContext(principal.team, request_id, request_id),
+            principal.user,
+            principal.team,
+            providers.shadow_for_team(principal.team),
         )
-        masked_payload = providers.mask(payload, request_context)
+        try:
+            masked_payload = providers.mask(payload, request_context)
+        except BlockedContentError as error:
+            raise gateway_error(403, str(error), "policy_blocked") from error
         if payload.get("stream") is True:
             stream, fallback_used = await providers.stream("openai", masked_payload)
 
@@ -74,15 +78,13 @@ def configure(
             return StreamingResponse(
                 events(),
                 media_type="text/event-stream",
-                headers=_headers(request_id, fallback_used, principal.shadow_mode, request_context),
+                headers=_headers(request_id, fallback_used, request_context),
             )
         result = await providers.complete("openai", masked_payload, request_context)
         limits.record_spend(principal)
         return JSONResponse(
             result.payload,
-            headers=_headers(
-                request_id, result.fallback_used, principal.shadow_mode, request_context
-            ),
+            headers=_headers(request_id, result.fallback_used, request_context),
         )
 
     @router.post("/v1/chat/completions", response_model=None)
@@ -102,3 +104,5 @@ def configure(
         if not isinstance(payload, dict):
             raise gateway_error(400, "Request body must be an object", "invalid_request_error")
         return await handle(payload, authorization, request)
+
+    return router

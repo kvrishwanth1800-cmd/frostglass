@@ -33,7 +33,7 @@ def test_ac_m1_01_openai_compatible_non_streaming() -> None:
     response = client().post("/v1/chat/completions", headers=KEY, json=chat_payload())
     assert response.status_code == 200
     assert response.json()["choices"][0]["message"]["content"] == "mock response"
-    assert response.headers["x-frostglass-action"] == "allowed"
+    assert response.headers["x-frostglass-action"] == "shadow"
 
 
 def test_ac_m1_02_anthropic_compatible_non_streaming() -> None:

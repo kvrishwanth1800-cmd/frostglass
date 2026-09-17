@@ -5,32 +5,32 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from frostglass.admin.routes_policies import create_router as create_policy_router
 from frostglass.config import Settings
 from frostglass.detection.defaults import build_detection_engine
 from frostglass.errors import GatewayError
 from frostglass.gateway.auth import default_key_store
 from frostglass.gateway.budget import Limits
 from frostglass.gateway.pipeline import ProviderRegistry
-from frostglass.gateway.routes_anthropic import configure as configure_anthropic
-from frostglass.gateway.routes_anthropic import router as anthropic_router
-from frostglass.gateway.routes_openai import configure as configure_openai
-from frostglass.gateway.routes_openai import router as openai_router
+from frostglass.gateway.routes_anthropic import create_router as create_anthropic_router
+from frostglass.gateway.routes_openai import create_router as create_openai_router
 from frostglass.masking.consistency import ConsistencyManager
 from frostglass.masking.engine import MaskingEngine
 from frostglass.masking.vault import EncryptedVault
 from frostglass.observability.metrics import router as metrics_router
+from frostglass.policy.defaults import build_policy_engine
 
 
 def create_app() -> FastAPI:
-    """Create the application after validating security-critical configuration."""
+    """Create an application with request handlers isolated to this instance."""
     settings = Settings()
+    app = FastAPI(title="Frostglass", version=settings.version)
+    detection_engine = build_detection_engine()
     vault = EncryptedVault(settings.vault_encryption_key)
     masking_engine = MaskingEngine(ConsistencyManager(vault), settings.tenant_salt)
-    app = FastAPI(title="Frostglass", version=settings.version)
+    policy_engine = build_policy_engine(settings.policy_database_path)
     key_store, limits = default_key_store(), Limits()
-    providers = ProviderRegistry(build_detection_engine(), masking_engine, vault)
-    configure_openai(key_store, limits, providers, settings.tenant_salt)
-    configure_anthropic(key_store, limits, providers, settings.tenant_salt)
+    providers = ProviderRegistry(detection_engine, masking_engine, vault, policy_engine)
 
     @app.exception_handler(GatewayError)
     async def gateway_exception(_: Request, error: GatewayError) -> JSONResponse:
@@ -40,8 +40,11 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok", "version": settings.version}
 
-    app.include_router(openai_router)
-    app.include_router(anthropic_router)
+    app.include_router(create_openai_router(key_store, limits, providers, settings.tenant_salt))
+    app.include_router(create_anthropic_router(key_store, limits, providers, settings.tenant_salt))
+    app.include_router(
+        create_policy_router(detection_engine, policy_engine, masking_engine, settings.tenant_salt)
+    )
     app.include_router(metrics_router)
     return app
 
