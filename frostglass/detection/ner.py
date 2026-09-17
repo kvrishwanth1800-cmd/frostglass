@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from functools import lru_cache
 
 from presidio_analyzer import AnalyzerEngine
-from presidio_analyzer.nlp_engine import NlpEngineProvider
+from presidio_analyzer.nlp_engine import NlpEngine, NlpEngineProvider
 
 from frostglass.detection.models import CandidateSpan, DetectionContext
 
@@ -19,18 +20,30 @@ _ENTITY_MAP = {
 }
 
 
+@lru_cache(maxsize=None)
+def _shared_nlp_engine(model_name: str) -> NlpEngine:
+    """Build the spaCy NLP engine once per model and share it process-wide.
+
+    The spaCy model weights are large (~650MB) and read-only at inference
+    time, so every AnalyzerEngine can safely reuse a single loaded copy.
+    Without this, each create_app() loaded its own copy and the copies
+    stacked until the process was killed.
+    """
+    provider = NlpEngineProvider(
+        nlp_configuration={
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": model_name}],
+        }
+    )
+    return provider.create_engine()
+
+
 class NerDetector:
     """Long-lived Presidio analyzer using the configured spaCy model."""
 
     def __init__(self, model_name: str = "en_core_web_lg") -> None:
-        provider = NlpEngineProvider(
-            nlp_configuration={
-                "nlp_engine_name": "spacy",
-                "models": [{"lang_code": "en", "model_name": model_name}],
-            }
-        )
         self._analyzer = AnalyzerEngine(
-            nlp_engine=provider.create_engine(), supported_languages=["en"]
+            nlp_engine=_shared_nlp_engine(model_name), supported_languages=["en"]
         )
 
     def detect(self, text: str, context: DetectionContext) -> Sequence[CandidateSpan]:
