@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from frostglass.audit.models import RequestRecord
 
 _SCHEMA = """
+
 CREATE TABLE IF NOT EXISTS requests (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -76,7 +78,13 @@ CREATE TRIGGER IF NOT EXISTS audit_events_no_update
 CREATE TRIGGER IF NOT EXISTS audit_events_no_delete
     BEFORE DELETE ON audit_events
     BEGIN SELECT RAISE(ABORT, 'audit_events is append-only'); END;
+
 """
+
+# Confidence thresholds the policy editor's per-rule slider snaps to. Each
+# threshold reports how many findings of a type met it in the window, so a
+# compliance officer sees the real impact of moving the slider (H.6.2 page 4).
+_CONFIDENCE_THRESHOLDS = (0.5, 0.6, 0.7, 0.8, 0.9)
 
 
 class AuditStore:
@@ -248,6 +256,259 @@ class AuditStore:
             "SELECT * FROM captured_content WHERE request_id = ?", (request_id,)
         ).fetchone()
 
+    # -- dashboard aggregates (M6) --------------------------------------------
+    # Every aggregate is tenant-scoped and, for team-scoped roles, team-scoped,
+    # so a viewer never sees another team's traffic. Timestamps are stored as
+    # ISO-8601 strings; lexical comparison equals chronological comparison, so
+    # range windows and day bucketing use plain string comparisons on ts.
+
+    def _scope(self, team: str | None) -> tuple[str, list[object]]:
+        clause = " AND team = ?" if team is not None else ""
+        params: list[object] = [team] if team is not None else []
+        return clause, params
+
+    def stats_overview(
+        self,
+        tenant_id: str,
+        *,
+        team: str | None = None,
+        range: str = "7d",
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Return the Overview page aggregates in one round trip (H.6.2 page 1)."""
+        moment = now or datetime.now(tz=None)
+        window_days = _range_days(range)
+        scope, scope_params = self._scope(team)
+        conn = self._connection
+
+        def _count_since(days: int) -> int:
+            since = (moment - timedelta(days=days)).isoformat()
+            row = conn.execute(
+                f"SELECT COUNT(*) AS n FROM requests WHERE tenant_id = ?{scope} AND ts >= ?",
+                [tenant_id, *scope_params, since],
+            ).fetchone()
+            return int(row["n"])
+
+        today_start = moment.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        totals = {
+            "today": int(
+                conn.execute(
+                    f"SELECT COUNT(*) AS n FROM requests WHERE tenant_id = ?{scope} AND ts >= ?",
+                    [tenant_id, *scope_params, today_start],
+                ).fetchone()["n"]
+            ),
+            "last_7d": _count_since(7),
+            "last_30d": _count_since(30),
+        }
+
+        window_start = (moment - timedelta(days=window_days)).isoformat()
+        window = [tenant_id, *scope_params, window_start]
+
+        by_action_rows = conn.execute(
+            f"""
+            SELECT action, COUNT(*) AS n FROM requests
+            WHERE tenant_id = ?{scope} AND ts >= ?
+            GROUP BY action
+            """,
+            window,
+        ).fetchall()
+        by_action = {row["action"]: int(row["n"]) for row in by_action_rows}
+        windowed_total = sum(by_action.values())
+
+        sparkline = [
+            {"day": row["day"], "count": int(row["n"])}
+            for row in conn.execute(
+                f"""
+                SELECT substr(ts, 1, 10) AS day, COUNT(*) AS n FROM requests
+                WHERE tenant_id = ?{scope} AND ts >= ?
+                GROUP BY day ORDER BY day
+                """,
+                window,
+            ).fetchall()
+        ]
+
+        sensitive_requests = int(
+            conn.execute(
+                f"""
+                SELECT COUNT(DISTINCT requests.id) AS n FROM requests
+                JOIN findings ON findings.request_id = requests.id
+                WHERE requests.tenant_id = ?{scope} AND requests.ts >= ?
+                """,
+                window,
+            ).fetchone()["n"]
+        )
+
+        top_entity_types = [
+            {"entity_type": row["entity_type"], "count": int(row["n"])}
+            for row in conn.execute(
+                f"""
+                SELECT findings.entity_type AS entity_type, COUNT(*) AS n FROM findings
+                JOIN requests ON requests.id = findings.request_id
+                WHERE requests.tenant_id = ?{scope} AND requests.ts >= ?
+                GROUP BY findings.entity_type ORDER BY n DESC, entity_type LIMIT 10
+                """,
+                window,
+            ).fetchall()
+        ]
+
+        top_teams = [
+            {
+                "team": row["team"],
+                "count": int(row["n"]),
+                "flagged": int(row["flagged"]),
+            }
+            for row in conn.execute(
+                f"""
+                SELECT team, COUNT(*) AS n,
+                       SUM(CASE WHEN action != 'allowed' THEN 1 ELSE 0 END) AS flagged
+                FROM requests WHERE tenant_id = ?{scope} AND ts >= ?
+                GROUP BY team ORDER BY n DESC, team LIMIT 10
+                """,
+                window,
+            ).fetchall()
+        ]
+
+        spend_by_provider = [
+            {"provider": row["provider"], "cost_cents": int(row["cost"] or 0)}
+            for row in conn.execute(
+                f"""
+                SELECT provider, COALESCE(SUM(cost_cents), 0) AS cost FROM requests
+                WHERE tenant_id = ?{scope} AND ts >= ?
+                GROUP BY provider ORDER BY cost DESC, provider
+                """,
+                window,
+            ).fetchall()
+        ]
+        spend_by_model = [
+            {"model": row["model"], "cost_cents": int(row["cost"] or 0)}
+            for row in conn.execute(
+                f"""
+                SELECT model, COALESCE(SUM(cost_cents), 0) AS cost FROM requests
+                WHERE tenant_id = ?{scope} AND ts >= ?
+                GROUP BY model ORDER BY cost DESC, model
+                """,
+                window,
+            ).fetchall()
+        ]
+
+        # Preserve the M5 keys (range, sampled, by_action) so existing callers
+        # and tests keep working; everything else is additive.
+        return {
+            "range": range,
+            "sampled": windowed_total,
+            "by_action": by_action,
+            "totals": totals,
+            "windowed_total": windowed_total,
+            "sensitive_requests": sensitive_requests,
+            "sensitive_pct": (sensitive_requests / windowed_total) if windowed_total else 0.0,
+            "sparkline": sparkline,
+            "top_entity_types": top_entity_types,
+            "top_teams": top_teams,
+            "top_users": self.top_users(tenant_id, team=team, range=range, now=moment),
+            "spend_by_provider": spend_by_provider,
+            "spend_by_model": spend_by_model,
+        }
+
+    def top_users(
+        self,
+        tenant_id: str,
+        *,
+        team: str | None = None,
+        range: str = "7d",
+        limit: int = 10,
+        now: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        """Top users by flagged-request volume in the window (backs AC-M6-01).
+
+        Ordered by flagged count desc, then total desc, so "who sent the most
+        flagged prompts this week" is the first row.
+        """
+        moment = now or datetime.now(tz=None)
+        since = (moment - timedelta(days=_range_days(range))).isoformat()
+        scope, scope_params = self._scope(team)
+        rows = self._connection.execute(
+            f"""
+            SELECT user_id,
+                   COUNT(*) AS n,
+                   SUM(CASE WHEN action != 'allowed' THEN 1 ELSE 0 END) AS flagged
+            FROM requests
+            WHERE tenant_id = ?{scope} AND ts >= ?
+            GROUP BY user_id
+            ORDER BY flagged DESC, n DESC, user_id
+            LIMIT ?
+            """,
+            [tenant_id, *scope_params, since, limit],
+        ).fetchall()
+        return [
+            {"user": row["user_id"], "count": int(row["n"]), "flagged": int(row["flagged"])}
+            for row in rows
+        ]
+
+    def detection_estimates(
+        self,
+        tenant_id: str,
+        *,
+        team: str | None = None,
+        range: str = "7d",
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Per-entity-type match counts by confidence threshold (H.6.2 page 4).
+
+        The policy editor's confidence slider shows how many findings of a type
+        met each threshold in the window, so moving the slider has a visible,
+        real impact estimate rather than an invented number.
+        """
+        moment = now or datetime.now(tz=None)
+        since = (moment - timedelta(days=_range_days(range))).isoformat()
+        scope, scope_params = self._scope(team)
+        rows = self._connection.execute(
+            f"""
+            SELECT findings.entity_type AS entity_type, findings.confidence AS confidence
+            FROM findings JOIN requests ON requests.id = findings.request_id
+            WHERE requests.tenant_id = ?{scope} AND requests.ts >= ?
+            """,
+            [tenant_id, *scope_params, since],
+        ).fetchall()
+        estimates: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            entity_type = row["entity_type"]
+            confidence = float(row["confidence"])
+            bucket = estimates.setdefault(
+                entity_type,
+                {"total": 0, "at_confidence": {f"{t:.1f}": 0 for t in _CONFIDENCE_THRESHOLDS}},
+            )
+            bucket["total"] += 1
+            for threshold in _CONFIDENCE_THRESHOLDS:
+                if confidence >= threshold:
+                    bucket["at_confidence"][f"{threshold:.1f}"] += 1
+        return {"range": range, "by_entity_type": estimates}
+
+    def false_positive_rate(
+        self, tenant_id: str, *, team: str | None = None, range: str = "7d",
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        """False-positive-report rate over findings in the window (H.6.2 page 3)."""
+        moment = now or datetime.now(tz=None)
+        since = (moment - timedelta(days=_range_days(range))).isoformat()
+        scope, scope_params = self._scope(team)
+        row = self._connection.execute(
+            f"""
+            SELECT COUNT(*) AS total,
+                   SUM(findings.false_positive_reported) AS reported
+            FROM findings JOIN requests ON requests.id = findings.request_id
+            WHERE requests.tenant_id = ?{scope} AND requests.ts >= ?
+            """,
+            [tenant_id, *scope_params, since],
+        ).fetchone()
+        total = int(row["total"] or 0)
+        reported = int(row["reported"] or 0)
+        return {
+            "range": range,
+            "total": total,
+            "reported": reported,
+            "rate": (reported / total) if total else 0.0,
+        }
+
     def purge(self, *, audit_cutoff: datetime, now: datetime) -> None:
         """Purge expired captured content and audit rows older than the cutoff."""
         self._connection.execute(
@@ -255,3 +516,23 @@ class AuditStore:
         )
         self._connection.execute("DELETE FROM requests WHERE ts < ?", (audit_cutoff.isoformat(),))
         self._connection.commit()
+
+
+def _range_days(range: str) -> int:
+    """Parse a range token like '24h', '7d', '30d' into a day window.
+
+    Unknown or malformed tokens fall back to 7 days so a bad query parameter
+    degrades to the default window rather than erroring.
+    """
+    token = (range or "").strip().lower()
+    try:
+        if token.endswith("h"):
+            hours = int(token[:-1])
+            return max(1, (hours + 23) // 24)
+        if token.endswith("d"):
+            return max(1, int(token[:-1]))
+        if token.endswith("w"):
+            return max(1, int(token[:-1]) * 7)
+    except ValueError:
+        return 7
+    return 7
