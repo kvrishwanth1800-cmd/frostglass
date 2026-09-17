@@ -132,7 +132,9 @@ class AdminStore:
             "SELECT token_hash, user_id, tenant_id, team, role FROM admin_sessions"
         ).fetchall():
             if compare_digest(row["token_hash"], digest):
-                return AdminIdentity(row["user_id"], row["tenant_id"], row["team"], Role(row["role"]))
+                return AdminIdentity(
+                    row["user_id"], row["tenant_id"], row["team"], Role(row["role"])
+                )
         return None
 
     # -- append-only audit events ---------------------------------------------
@@ -198,9 +200,7 @@ class AdminStore:
         ).fetchall()
 
     # -- users -----------------------------------------------------------------
-    def create_user(
-        self, tenant_id: str, email: str, name: str, role: Role
-    ) -> str:
+    def create_user(self, tenant_id: str, email: str, name: str, role: Role) -> str:
         user_id = uuid.uuid4().hex
         self._connection.execute(
             """
@@ -243,7 +243,8 @@ class AdminStore:
 
     def revoke_key(self, tenant_id: str, key_id: str) -> bool:
         cursor = self._connection.execute(
-            "UPDATE api_keys SET revoked_at = ? WHERE tenant_id = ? AND id = ? AND revoked_at IS NULL",
+            "UPDATE api_keys SET revoked_at = ? "
+            "WHERE tenant_id = ? AND id = ? AND revoked_at IS NULL",
             (datetime.now(UTC).isoformat(), tenant_id, key_id),
         )
         self._connection.commit()
@@ -378,9 +379,7 @@ class AdminStore:
             "SELECT * FROM settings WHERE tenant_id = ?", (tenant_id,)
         ).fetchone()
         if row is None:
-            self._connection.execute(
-                "INSERT INTO settings(tenant_id) VALUES (?)", (tenant_id,)
-            )
+            self._connection.execute("INSERT INTO settings(tenant_id) VALUES (?)", (tenant_id,))
             self._connection.commit()
             row = self._connection.execute(
                 "SELECT * FROM settings WHERE tenant_id = ?", (tenant_id,)

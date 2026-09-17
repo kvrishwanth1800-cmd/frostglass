@@ -211,7 +211,9 @@ class AuditStore:
             next_cursor = (last["ts"], last["id"])
         return rows, next_cursor
 
-    def request_trace(self, tenant_id: str, request_id: str, team: str | None = None) -> list[sqlite3.Row]:
+    def request_trace(
+        self, tenant_id: str, request_id: str, team: str | None = None
+    ) -> list[sqlite3.Row]:
         """Return the decision trace (findings) for a tenant/team-scoped request."""
         if self.get_request(tenant_id, request_id, team) is None:
             return []
@@ -251,7 +253,5 @@ class AuditStore:
         self._connection.execute(
             "DELETE FROM captured_content WHERE expires_at <= ?", (now.isoformat(),)
         )
-        self._connection.execute(
-            "DELETE FROM requests WHERE ts < ?", (audit_cutoff.isoformat(),)
-        )
+        self._connection.execute("DELETE FROM requests WHERE ts < ?", (audit_cutoff.isoformat(),))
         self._connection.commit()

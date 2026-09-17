@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Header, Query, Request
+from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel, Field
 
 from frostglass.admin.pagination import decode_cursor, encode_cursor
-from frostglass.admin.rbac import AdminIdentity, Permission
+from frostglass.admin.rbac import AdminIdentity, Permission, Role
 from frostglass.admin.store import AdminStore
 from frostglass.audit.store import AuditStore
 from frostglass.errors import gateway_error
@@ -185,8 +185,6 @@ def create_router(audit_store: AuditStore, admin_store: AdminStore) -> APIRouter
     ) -> dict[str, Any]:
         identity = identify(authorization)
         identity.require(Permission.WRITE_ACCESS)
-        from frostglass.admin.rbac import Role
-
         try:
             role = Role(body.role)
         except ValueError as error:
@@ -331,7 +329,11 @@ def create_router(audit_store: AuditStore, admin_store: AdminStore) -> APIRouter
             content_capture_enabled=body.content_capture_enabled,
         )
         admin_store.record_event(
-            identity, "settings.update", identity.tenant_id, before=dict(before), after=dict(updated)
+            identity,
+            "settings.update",
+            identity.tenant_id,
+            before=dict(before),
+            after=dict(updated),
         )
         return dict(updated)
 
