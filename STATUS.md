@@ -1,6 +1,6 @@
 # Build Status
 
-**Current milestone:** M5 - Audit and Admin API, IN PROGRESS
+**Current milestone:** M5 - Audit and Admin API, COMPLETE
 **Branch:** m5-audit-admin
 **Last updated:** 2026-09-17
 
@@ -10,7 +10,7 @@
 - [x] M2 Detection engine - complete. Final implementation merged in PR #17.
 - [x] M3 Masking engine - complete. CI passed on Python 3.11 and 3.12.
 - [x] M4 Policy engine + shadow mode - complete. Merged in PR #19 (squash `993cf56`).
-- [~] M5 Audit + Admin API - IN PROGRESS
+- [x] M5 Audit + Admin API - complete. Admin API, server-side RBAC, cross-team isolation, and the performance budget delivered on this branch; CI green on 3.11 and 3.12.
 - [ ] M6 Dashboard
 - [ ] M7 Detectors, dictionaries, suggestions
 - [ ] M8 Hardening, docs, 1.0 release
@@ -24,10 +24,10 @@
 - [x] Gateway records every request (allowed/masked/shadow/blocked) with the audit id returned as X-Frostglass-Request-Id
 - [x] AC-M5-03 raw-value scan test (`tests/integration/test_no_raw_values_in_db.py`)
 - [x] AC-M5-04 retention test (`tests/unit/test_audit_retention.py`)
-- [ ] Admin API: all `/admin/*` endpoints, cursor pagination, server-side RBAC, published OpenAPI at `/admin/docs`
-- [ ] AC-M5-02 RBAC negative tests (lower privilege rejected on every /admin endpoint)
-- [ ] AC-M5-05 IDOR tests (a user cannot fetch another team's request/finding by id)
-- [ ] AC-M5-01 performance: 10k synthetic requests, every list endpoint p95 < 300 ms
+- [x] Admin API: all `/admin/*` endpoints, cursor pagination, server-side RBAC, published OpenAPI at `/admin/docs`
+- [x] AC-M5-02 RBAC negative tests (lower privilege rejected on every /admin endpoint) (`tests/integration/test_admin_rbac.py`)
+- [x] AC-M5-05 IDOR tests (a user cannot fetch another team's request/finding by id) (`tests/integration/test_admin_idor.py`)
+- [x] AC-M5-01 performance: 10k synthetic requests, every list endpoint p95 < 300 ms (`tests/integration/test_admin_perf.py`)
 
 ## M5 acceptance criteria (Part K)
 - AC-M5-01: 10k synthetic requests, every list endpoint p95 < 300 ms.
@@ -40,6 +40,13 @@ Gates: B.1 QA, B.3 Security, B.5 Performance.
 ## M5 self-audit against the two M4-taught failure classes
 - Shared/singleton state across app instances: the audit store and recorder are built fresh per `create_app()` and stored on `app.state`; no module-level singletons. Each app opens its own SQLite connection.
 - Repeated instantiation of an expensive resource: the SQLite connection and cipher are created once per app, not per request. (The spaCy model concern remains tracked in issue #22.)
+
+## M5 engineering history (permanent record)
+
+### Three masked bugs found by the AC suites and fixed
+- **AC-M5-02 (RBAC):** the viewer role wrongly held READ_TRACE, so a viewer could read decision traces. Removed READ_TRACE from the viewer read set; it is granted to AUDITOR, ADMIN, and OWNER only (`frostglass/admin/rbac.py`).
+- **Dry-run 422:** `POST /admin/policies/test` declared its body as a typed model and rejected the free-form payload with 422. Changed to `body: dict[str, Any] = Body(...)`.
+- **AC-M5-05 (IDOR):** `GET /admin/requests/{id}/trace` enforced READ_TRACE before the team-scoped lookup, so a cross-team caller probing a real request id received 403 (leaking existence) instead of 404. The handler now returns 404 for a request that exists in the tenant but outside the caller's team scope, before the permission gate; a genuinely unknown id still falls through to the permission check (viewer -> 403, owner -> 404), preserving AC-M5-02. The plain `GET /admin/requests/{id}` endpoint was already team-scoped and correct.
 
 ## M4 Definition of Done scope
 - AC-M4-01 (precedence covers every ordering pair): `tests/unit/test_policy_precedence.py::test_ac_m4_01_precedence_covers_every_ordering_pair`, 5x5 actions x 4x4 scopes = 400 combinations.
@@ -69,5 +76,6 @@ The four extraction-security tests each built their own `TestClient(create_app()
 - Audit persistence lives in `frostglass/audit/` (store, recorder, capture, retention, models); the gateway records every request and returns the audit id as `X-Frostglass-Request-Id`.
 - `FG_CONTENT_CAPTURE` defaults false; capture stores the masked payload only, encrypted, short TTL, and is skipped in shadow mode (the forwarded payload is the unmasked original there).
 - `FG_AUDIT_DATABASE_PATH` defaults `frostglass-audit.sqlite3`; tests use `:memory:` via conftest.
-- Next: build the Admin API surface (`/admin/*`) with session/OIDC auth separate from virtual keys, cursor pagination, server-side RBAC on every endpoint, published OpenAPI at `/admin/docs`, then AC-M5-01/02/05 tests.
+- Admin API surface (`/admin/*`) is delivered with session auth separate from virtual keys, cursor pagination, server-side RBAC on every endpoint, and published OpenAPI at `/admin/docs`.
+- Next: M6 dashboard.
 - CI must use mock providers only. Never call vendor APIs in tests.
