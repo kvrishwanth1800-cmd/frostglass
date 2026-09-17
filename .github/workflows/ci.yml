@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, m0-foundation, m2-detection, m5-audit-admin]
+    branches: [main, m0-foundation, m2-detection]
   pull_request:
     branches: [main]
 
@@ -14,9 +14,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -q '.[dev]'
+      - run: pip install '.[dev]'
       - run: ruff check .
-      - run: ruff format --check --diff .
+      - run: ruff format --check .
 
   typecheck:
     runs-on: ubuntu-latest
@@ -42,9 +42,9 @@ jobs:
         with:
           path: ~/.cache/pip
           key: spacy-en-core-web-lg-3.7.1-${{ matrix.python-version }}
-      - run: pip install -q '.[dev]'
-      - run: pip install -q https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl
-      - run: pytest tests/integration/test_admin_api.py -x --tb=long -p no:cacheprovider
+      - run: pip install '.[dev]'
+      - run: pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl
+      - run: pytest
 
   detection-accuracy:
     runs-on: ubuntu-latest
