@@ -72,18 +72,51 @@ def seeded_client() -> Iterator[TestClient]:
     app = create_app()
     store: AuditStore = app.state.audit_store
     # test-team: alice sends 3 flagged (PERSON) + 1 allowed; bob sends 1 flagged.
-    _seed(store, request_id="t1", team="test-team", user="alice", action="masked",
-          findings=(_finding("PERSON", 0.95),))
-    _seed(store, request_id="t2", team="test-team", user="alice", action="masked",
-          findings=(_finding("PERSON", 0.65),))
-    _seed(store, request_id="t3", team="test-team", user="alice", action="blocked",
-          findings=(_finding("AWS_ACCESS_KEY", 0.99, reported=True),))
+    _seed(
+        store,
+        request_id="t1",
+        team="test-team",
+        user="alice",
+        action="masked",
+        findings=(_finding("PERSON", 0.95),),
+    )
+    _seed(
+        store,
+        request_id="t2",
+        team="test-team",
+        user="alice",
+        action="masked",
+        findings=(_finding("PERSON", 0.65),),
+    )
+    _seed(
+        store,
+        request_id="t3",
+        team="test-team",
+        user="alice",
+        action="blocked",
+        findings=(_finding("AWS_ACCESS_KEY", 0.99, reported=True),),
+    )
     _seed(store, request_id="t4", team="test-team", user="alice", action="allowed")
-    _seed(store, request_id="t5", team="test-team", user="bob", action="masked", provider="anthropic",
-          model="claude", cost_cents=25, findings=(_finding("EMAIL", 0.9),))
+    _seed(
+        store,
+        request_id="t5",
+        team="test-team",
+        user="bob",
+        action="masked",
+        provider="anthropic",
+        model="claude",
+        cost_cents=25,
+        findings=(_finding("EMAIL", 0.9),),
+    )
     # other-team traffic must never appear for a team-scoped viewer.
-    _seed(store, request_id="o1", team="other-team", user="mallory", action="blocked",
-          findings=(_finding("PERSON", 0.99),))
+    _seed(
+        store,
+        request_id="o1",
+        team="other-team",
+        user="mallory",
+        action="blocked",
+        findings=(_finding("PERSON", 0.99),),
+    )
     # mark one finding reported so the false-positive widget has a numerator.
     trace = store.request_trace("default", "t3", None)
     store.report_false_positive("default", trace[0]["id"], None)
@@ -169,7 +202,7 @@ def test_settings_sso_provider_and_vault(seeded_client: TestClient) -> None:
     stored = seeded_client.post(
         "/admin/settings/providers",
         headers=OWNER,
-        json={"provider": "openai", "secret": "sk-supersecret-value-1234"},
+        json={"provider": "openai", "secret": "supersecret1234"},
     )
     assert stored.status_code == 200
     assert stored.json()["key_last4"] == "1234"
@@ -187,7 +220,7 @@ def test_settings_sso_provider_and_vault(seeded_client: TestClient) -> None:
     ("method", "path", "payload"),
     [
         ("patch", "/admin/teams/any-id", {"shadow_mode": True}),
-        ("post", "/admin/settings/providers", {"provider": "openai", "secret": "x"}),
+        ("post", "/admin/settings/providers", {"provider": "openai", "secret": "supersecret1234"}),
         ("post", "/admin/settings/vault/rotate", None),
     ],
 )
