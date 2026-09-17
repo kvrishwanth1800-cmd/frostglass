@@ -40,7 +40,8 @@ def create_router(
         )
         evaluations = policy_engine.evaluate(findings, request.user, request.team, request.model)
         modes = {
-            item.finding.entity_type: MaskingMode(item.decision.action) for item in evaluations
+            (item.finding.start, item.finding.end): MaskingMode(item.decision.action)
+            for item in evaluations
         }
         context = MaskingContext(request.team, "policy-test", "policy-test")
         try:

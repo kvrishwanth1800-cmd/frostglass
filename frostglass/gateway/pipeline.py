@@ -126,7 +126,7 @@ class ProviderRegistry:
                 findings = tuple(
                     item[0] for item in sorted(entries, key=lambda item: item[0].start)
                 )
-                modes = {item[0].entity_type: item[1] for item in entries}
+                modes = {(item[0].start, item[0].end): item[1] for item in entries}
                 return self._masking_engine.mask(
                     value, findings, request_context.masking_context, modes
                 ).text

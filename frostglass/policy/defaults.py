@@ -6,7 +6,21 @@ from frostglass.policy.engine import PolicyEngine
 from frostglass.policy.loader import PolicyStore
 from frostglass.policy.models import Action, Rule, RuleSet
 
-_SECRET_TYPES = frozenset({"AWS_ACCESS_KEY", "GITHUB_TOKEN", "PRIVATE_KEY", "JWT", "PASSWORD"})
+# Every entity type the secret detector can emit must block by default (H.2).
+_SECRET_TYPES = frozenset(
+    {
+        "AWS_ACCESS_KEY",
+        "GITHUB_TOKEN",
+        "SLACK_TOKEN",
+        "STRIPE_KEY",
+        "OPENAI_KEY",
+        "ANTHROPIC_KEY",
+        "JWT",
+        "PRIVATE_KEY",
+        "HIGH_ENTROPY_TOKEN",
+        "PASSWORD",
+    }
+)
 
 
 def default_ruleset() -> RuleSet:
