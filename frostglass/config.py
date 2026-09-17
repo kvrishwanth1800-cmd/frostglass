@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     policy_database_path: str = Field(
         default="frostglass-policy.sqlite3", validation_alias="FG_POLICY_DATABASE_PATH"
     )
+    audit_database_path: str = Field(
+        default="frostglass-audit.sqlite3", validation_alias="FG_AUDIT_DATABASE_PATH"
+    )
+    content_capture: bool = Field(default=False, validation_alias="FG_CONTENT_CAPTURE")
+    audit_retention_days: int = Field(default=90, validation_alias="FG_AUDIT_RETENTION_DAYS")
+    capture_retention_days: int = Field(default=7, validation_alias="FG_CAPTURE_RETENTION_DAYS")
     version: str = "0.0.1"
 
     @field_validator("vault_encryption_key")
@@ -53,10 +59,17 @@ class Settings(BaseSettings):
             )
         return normalized
 
-    @field_validator("policy_database_path")
+    @field_validator("policy_database_path", "audit_database_path")
     @classmethod
-    def validate_policy_database_path(cls, value: str) -> str:
+    def validate_database_path(cls, value: str) -> str:
         normalized = value.strip()
         if not normalized:
-            raise ValueError("FG_POLICY_DATABASE_PATH must not be empty")
+            raise ValueError("database path must not be empty")
         return normalized
+
+    @field_validator("audit_retention_days", "capture_retention_days")
+    @classmethod
+    def validate_retention_days(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("retention windows must be at least one day")
+        return value

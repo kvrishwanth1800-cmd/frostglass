@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from frostglass.admin.routes_policies import create_router as create_policy_router
+from frostglass.audit.capture import ContentCapture
+from frostglass.audit.recorder import AuditRecorder
+from frostglass.audit.store import AuditStore
 from frostglass.config import Settings
 from frostglass.detection.defaults import build_detection_engine
 from frostglass.errors import GatewayError
@@ -20,6 +25,8 @@ from frostglass.masking.vault import EncryptedVault
 from frostglass.observability.metrics import router as metrics_router
 from frostglass.policy.defaults import build_policy_engine
 
+_DEFAULT_TENANT = "default"
+
 
 def create_app() -> FastAPI:
     """Create an application with request handlers isolated to this instance."""
@@ -31,6 +38,17 @@ def create_app() -> FastAPI:
     policy_engine = build_policy_engine(settings.policy_database_path)
     key_store, limits = default_key_store(), Limits()
     providers = ProviderRegistry(detection_engine, masking_engine, vault, policy_engine)
+    audit_store = AuditStore(settings.audit_database_path)
+    capture = (
+        ContentCapture(
+            settings.vault_encryption_key, timedelta(days=settings.capture_retention_days)
+        )
+        if settings.content_capture
+        else None
+    )
+    recorder = AuditRecorder(audit_store, _DEFAULT_TENANT, capture)
+    app.state.audit_store = audit_store
+    app.state.audit_recorder = recorder
 
     @app.exception_handler(GatewayError)
     async def gateway_exception(_: Request, error: GatewayError) -> JSONResponse:
@@ -40,8 +58,12 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok", "version": settings.version}
 
-    app.include_router(create_openai_router(key_store, limits, providers, settings.tenant_salt))
-    app.include_router(create_anthropic_router(key_store, limits, providers, settings.tenant_salt))
+    app.include_router(
+        create_openai_router(key_store, limits, providers, settings.tenant_salt, recorder)
+    )
+    app.include_router(
+        create_anthropic_router(key_store, limits, providers, settings.tenant_salt, recorder)
+    )
     app.include_router(
         create_policy_router(detection_engine, policy_engine, masking_engine, settings.tenant_salt)
     )
