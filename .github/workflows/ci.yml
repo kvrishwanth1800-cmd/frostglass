@@ -44,7 +44,7 @@ jobs:
           key: spacy-en-core-web-lg-3.7.1-${{ matrix.python-version }}
       - run: pip install -q '.[dev]'
       - run: pip install -q https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl
-      - run: pytest tests/integration/test_admin_api.py tests/integration/test_admin_rbac.py -q --tb=short -p no:cacheprovider
+      - run: pytest -q --tb=short -p no:cacheprovider
 
   detection-accuracy:
     runs-on: ubuntu-latest
