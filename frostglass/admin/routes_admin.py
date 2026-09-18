@@ -25,6 +25,14 @@ class TeamCreate(BaseModel):
     shadow_mode: bool = True
     monthly_budget_cents: int = 0
     rate_limit_rpm: int = 60
+    allowed_models: list[str] = Field(default_factory=list)
+
+
+class TeamUpdate(BaseModel):
+    shadow_mode: bool | None = None
+    monthly_budget_cents: int | None = Field(default=None, ge=0)
+    rate_limit_rpm: int | None = Field(default=None, ge=0)
+    allowed_models: list[str] | None = None
 
 
 class UserCreate(BaseModel):
@@ -55,10 +63,52 @@ class SettingsPatch(BaseModel):
     audit_retention_days: int | None = Field(default=None, ge=1)
     capture_retention_days: int | None = Field(default=None, ge=1)
     content_capture_enabled: bool | None = None
+    sso_enabled: bool | None = None
+    sso_provider: str | None = None
+    sso_client_id: str | None = None
+
+
+class ProviderCredentialSet(BaseModel):
+    provider: str = Field(min_length=1)
+    secret: str = Field(min_length=1)
 
 
 class PolicyCreate(BaseModel):
     yaml: str = Field(min_length=1)
+
+
+def _team_view(row: Any) -> dict[str, Any]:
+    import json
+
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "shadow_mode": bool(row["shadow_mode"]),
+        "monthly_budget_cents": row["monthly_budget_cents"],
+        "rate_limit_rpm": row["rate_limit_rpm"],
+        "allowed_models": json.loads(row["allowed_models"] or "[]"),
+        "content_capture_enabled": bool(row["content_capture_enabled"]),
+    }
+
+
+def _settings_view(row: Any, providers: list[Any]) -> dict[str, Any]:
+    return {
+        "audit_retention_days": row["audit_retention_days"],
+        "capture_retention_days": row["capture_retention_days"],
+        "content_capture_enabled": bool(row["content_capture_enabled"]),
+        "sso_enabled": bool(row["sso_enabled"]),
+        "sso_provider": row["sso_provider"],
+        "sso_client_id": row["sso_client_id"],
+        "vault_key_rotated_at": row["vault_key_rotated_at"],
+        "provider_credentials": [
+            {
+                "provider": item["provider"],
+                "key_last4": item["key_last4"],
+                "updated_at": item["updated_at"],
+            }
+            for item in providers
+        ],
+    }
 
 
 def _ruleset_view(ruleset: Any) -> dict[str, Any]:
@@ -114,13 +164,44 @@ def create_router(
     ) -> dict[str, Any]:
         identity = identify(authorization)
         identity.require(Permission.READ_STATS)
-        rows, _ = audit_store.list_requests(
-            identity.tenant_id, team=scope_team(identity), limit=_MAX_LIMIT
+        return audit_store.stats_overview(
+            identity.tenant_id, team=scope_team(identity), range=range
         )
-        by_action: dict[str, int] = {}
-        for row in rows:
-            by_action[row["action"]] = by_action.get(row["action"], 0) + 1
-        return {"range": range, "sampled": len(rows), "by_action": by_action}
+
+    @router.get("/stats/top-users")
+    async def stats_top_users(
+        authorization: str | None = Header(default=None),
+        range: str = "7d",
+        limit: int = Query(default=10, ge=1, le=_MAX_LIMIT),
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.READ_STATS)
+        return {
+            "range": range,
+            "items": audit_store.top_users(
+                identity.tenant_id, team=scope_team(identity), range=range, limit=limit
+            ),
+        }
+
+    @router.get("/stats/detections")
+    async def stats_detections(
+        authorization: str | None = Header(default=None), range: str = "7d"
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.READ_STATS)
+        return audit_store.detection_estimates(
+            identity.tenant_id, team=scope_team(identity), range=range
+        )
+
+    @router.get("/stats/false-positives")
+    async def stats_false_positives(
+        authorization: str | None = Header(default=None), range: str = "7d"
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.READ_STATS)
+        return audit_store.false_positive_rate(
+            identity.tenant_id, team=scope_team(identity), range=range
+        )
 
     @router.get("/requests")
     async def list_requests(
@@ -247,7 +328,7 @@ def create_router(
     async def list_teams(authorization: str | None = Header(default=None)) -> dict[str, Any]:
         identity = identify(authorization)
         identity.require(Permission.READ_ACCESS)
-        return {"items": [dict(row) for row in admin_store.list_teams(identity.tenant_id)]}
+        return {"items": [_team_view(row) for row in admin_store.list_teams(identity.tenant_id)]}
 
     @router.post("/teams")
     async def create_team(
@@ -261,9 +342,32 @@ def create_router(
             shadow_mode=body.shadow_mode,
             monthly_budget_cents=body.monthly_budget_cents,
             rate_limit_rpm=body.rate_limit_rpm,
+            allowed_models=body.allowed_models,
         )
         admin_store.record_event(identity, "team.create", team_id, after=body.model_dump())
         return {"id": team_id}
+
+    @router.patch("/teams/{team_id}")
+    async def update_team(
+        team_id: str, body: TeamUpdate, authorization: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.WRITE_ACCESS)
+        before = admin_store.get_team(identity.tenant_id, team_id)
+        if before is None:
+            raise gateway_error(404, "Team not found", "not_found")
+        updated = admin_store.update_team(
+            identity.tenant_id,
+            team_id,
+            shadow_mode=body.shadow_mode,
+            monthly_budget_cents=body.monthly_budget_cents,
+            rate_limit_rpm=body.rate_limit_rpm,
+            allowed_models=body.allowed_models,
+        )
+        admin_store.record_event(
+            identity, "team.update", team_id, before=_team_view(before), after=_team_view(updated)
+        )
+        return _team_view(updated)
 
     @router.get("/users")
     async def list_users(authorization: str | None = Header(default=None)) -> dict[str, Any]:
@@ -405,7 +509,10 @@ def create_router(
     async def get_settings(authorization: str | None = Header(default=None)) -> dict[str, Any]:
         identity = identify(authorization)
         identity.require(Permission.READ_SETTINGS)
-        return dict(admin_store.get_settings(identity.tenant_id))
+        return _settings_view(
+            admin_store.get_settings(identity.tenant_id),
+            admin_store.list_provider_credentials(identity.tenant_id),
+        )
 
     @router.patch("/settings")
     async def patch_settings(
@@ -419,6 +526,9 @@ def create_router(
             audit_retention_days=body.audit_retention_days,
             capture_retention_days=body.capture_retention_days,
             content_capture_enabled=body.content_capture_enabled,
+            sso_enabled=body.sso_enabled,
+            sso_provider=body.sso_provider,
+            sso_client_id=body.sso_client_id,
         )
         admin_store.record_event(
             identity,
@@ -427,7 +537,33 @@ def create_router(
             before=dict(before),
             after=dict(updated),
         )
-        return dict(updated)
+        return _settings_view(updated, admin_store.list_provider_credentials(identity.tenant_id))
+
+    @router.post("/settings/providers")
+    async def set_provider_credential(
+        body: ProviderCredentialSet, authorization: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.WRITE_SETTINGS)
+        admin_store.set_provider_credential(identity.tenant_id, body.provider, body.secret)
+        # Never log the secret; only that a credential for this provider was set.
+        admin_store.record_event(
+            identity,
+            "settings.provider_credential",
+            body.provider,
+            after={"provider": body.provider},
+        )
+        return {"provider": body.provider, "key_last4": body.secret[-4:], "stored": True}
+
+    @router.post("/settings/vault/rotate")
+    async def rotate_vault_key(
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        identity = identify(authorization)
+        identity.require(Permission.WRITE_SETTINGS)
+        updated = admin_store.rotate_vault_key(identity.tenant_id)
+        admin_store.record_event(identity, "settings.vault_rotate", identity.tenant_id)
+        return {"vault_key_rotated_at": updated["vault_key_rotated_at"]}
 
     @router.get("/events")
     async def list_events(authorization: str | None = Header(default=None)) -> dict[str, Any]:
@@ -450,8 +586,13 @@ def _request_view(row: Any) -> dict[str, Any]:
         "policy_version": row["policy_version"],
         "shadow": bool(row["shadow"]),
         "blocked_reason": row["blocked_reason"],
+        "prompt_tokens": row["prompt_tokens"],
+        "completion_tokens": row["completion_tokens"],
+        "cost_cents": row["cost_cents"],
         "latency_ms": row["latency_ms"],
+        "provider_latency_ms": row["provider_latency_ms"],
         "status_code": row["status_code"],
+        "fallback_used": None if row["fallback_used"] is None else bool(row["fallback_used"]),
     }
 
 

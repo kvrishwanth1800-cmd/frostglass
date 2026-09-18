@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "../styles/tokens.css";
+
+html,
+body {
+  background: var(--fg-canvas);
+  color: var(--fg-text);
+}
+
+body {
+  font-family: var(--font-plex-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible keyboard focus everywhere (H.6.1 quality floor). */
+:focus-visible {
+  outline: 2px solid var(--fg-shadow);
+  outline-offset: 2px;
+}
+
+/* Respect reduced-motion: motion is only ever a response to user action, and
+   even that is suppressed when the user asks for less. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
