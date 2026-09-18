@@ -537,9 +537,7 @@ def create_router(
             before=dict(before),
             after=dict(updated),
         )
-        return _settings_view(
-            updated, admin_store.list_provider_credentials(identity.tenant_id)
-        )
+        return _settings_view(updated, admin_store.list_provider_credentials(identity.tenant_id))
 
     @router.post("/settings/providers")
     async def set_provider_credential(
@@ -550,7 +548,10 @@ def create_router(
         admin_store.set_provider_credential(identity.tenant_id, body.provider, body.secret)
         # Never log the secret; only that a credential for this provider was set.
         admin_store.record_event(
-            identity, "settings.provider_credential", body.provider, after={"provider": body.provider}
+            identity,
+            "settings.provider_credential",
+            body.provider,
+            after={"provider": body.provider},
         )
         return {"provider": body.provider, "key_last4": body.secret[-4:], "stored": True}
 

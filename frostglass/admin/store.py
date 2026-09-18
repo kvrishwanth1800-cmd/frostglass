@@ -20,7 +20,6 @@ from typing import Any
 
 from frostglass.admin.rbac import AdminIdentity, Role
 
-
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS admin_sessions (
     token_hash TEXT PRIMARY KEY,
