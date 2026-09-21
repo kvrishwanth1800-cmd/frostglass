@@ -26,6 +26,7 @@ export interface RequestView {
 }
 
 export interface FindingView {
+  id: string;
   entity_type: string;
   detector: string;
   confidence: number;
