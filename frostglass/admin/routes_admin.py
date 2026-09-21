@@ -598,6 +598,7 @@ def _request_view(row: Any) -> dict[str, Any]:
 
 def _finding_view(row: Any) -> dict[str, Any]:
     return {
+        "id": row["id"],
         "entity_type": row["entity_type"],
         "detector": row["detector"],
         "confidence": row["confidence"],
