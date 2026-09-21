@@ -1,7 +1,15 @@
 # Build Status
 
-**Current milestone:** M7 - Detectors, dictionaries, suggestions, NOT STARTED
-**Branch:** main after PR #24 merge
+## Overnight summary
+
+- **M7 built and tested so far:** isolated dictionary persistence service with term list/add/update/remove/CSV import and immediate matching; isolated suggestion generator for unpoliced detections, recurring unknown patterns, over-blocking, and context-loss warnings; detector and suggestion dashboard pages; unit coverage for CRUD, CSV/paste import, immediate matching, suggestion generation, and regex rejection cases.
+- **M7 awaiting manual wiring:** `docs/pending-manual-edits.md` lists the exact required changes to `main.py`, `gateway/pipeline.py`, and `routes_admin.py` for live Admin API routes, next-request masking, and transactional Apply behavior.
+- **M7 awaiting security review:** custom regex recognizers are blocked. `docs/regex-security-review.md` explains why the current ReDoS syntax filter is not sufficient to approve shipping the feature. Do not merge M7.
+- **M8 preparation:** not started because the M7 regex-safety hard stop requires a security decision.
+- **Release boundary:** no `v1.0.0` tag was created and no M9 work started.
+
+**Current milestone:** M7 - Detectors, dictionaries, suggestions, BLOCKED FOR SECURITY REVIEW
+**Branch:** m7-suggestions
 **Last updated:** 2026-09-21
 
 ## Milestone progress
@@ -12,24 +20,23 @@
 - [x] M4 Policy engine + shadow mode - complete. Merged in PR #19 (squash `993cf56`).
 - [x] M5 Audit + Admin API - complete. Merged in PR #23 (squash `dfe22ef`).
 - [x] M6 Dashboard - complete. Verified in PR #24.
-- [ ] M7 Detectors, dictionaries, suggestions
-- [ ] M8 Hardening, docs, 1.0 release
+- [ ] M7 Detectors, dictionaries, suggestions - BLOCKED FOR SECURITY REVIEW.
+- [ ] M8 Hardening, docs, 1.0 release - not started.
 
-## M6 delivery and evidence
-- [x] Admin API expansion delivers server-side overview, top-user, detection-estimate, and false-positive aggregates; expanded team and settings management; and persisted request cost and latency fields.
-- [x] Dashboard delivers Overview, Requests Explorer, Blocked and Flagged, Policy Editor, Access and Budgets, and Settings pages, with shared design tokens, RBAC-aware actions, and loading, empty, error, and permission states.
-- [x] Page 3 reports a false positive against an individual finding ID and updates only that finding in the trace.
-- [x] AC-M6-01: Overview identifies the most flagged sender this week.
-- [x] AC-M6-02: Policy Editor previews PERSON pseudonymization before save.
-- [x] AC-M6-03: Requests Explorer limits its API page and rendered table work for a 100k-record corpus.
-- [x] AC-M6-04: Policy Editor supports keyboard-only rule editing and confirm-dialog navigation.
-- [x] AC-M6-05: Dashboard outcome colour utility classes are limited to blocked, masked, and shadow outcomes.
-- [x] Dashboard E2E: six Playwright tests passed in 14.2 seconds on 2026-09-21.
-- [x] Main CI: lint with GitHub annotations, format, mypy, Python 3.11 and 3.12 tests, detection accuracy, and dashboard build/typecheck passed before closeout.
-
-Gates: B.1 QA, B.4 UX, B.7 Product passed for M6.
+## M7 task state
+- [x] Isolated dictionary persistence and immediate matching service.
+- [x] Isolated custom-recognizer validation and safe-test service, pending security approval.
+- [x] Isolated deterministic four-kind suggestion generator.
+- [x] Detector and suggestion dashboard page shells.
+- [x] Manual wiring specification for redacted application files.
+- [ ] Wire dictionary terms into the gateway detection pipeline.
+- [ ] Wire tenant-scoped M7 API routes and server-side RBAC.
+- [ ] Implement transactional suggestion Apply against live policy and detector configuration.
+- [ ] Run full AC-M7 integration and Playwright evidence.
+- [ ] Open M7 PR for security review. Do not merge.
 
 ## Notes for the next session
-- Dashboard talks only to the Admin API (Part G), never the DB.
-- CI must use mock providers only. Never call vendor APIs in tests.
-- Keep `ruff check --output-format=github .` in CI so lint failures create GitHub annotations.
+- The hard stop is a regex-safety judgment call. Review `docs/regex-security-review.md` before modifying recognizer support.
+- Do not wire or expose regex save/enable behavior until a reviewed ReDoS control is selected.
+- `docs/pending-manual-edits.md` contains every known required redacted-file insertion. Any additional redacted-file modification must be escalated.
+- No v1.0 release or M9 work is authorized.
