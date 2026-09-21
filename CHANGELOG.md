@@ -17,16 +17,21 @@
 - M5 Admin API surface (`/admin/*`): stats overview, requests and per-request decision traces, finding false-positive reporting, policy read/create/activate/test, teams/users/keys management, detectors, dictionaries, suggestions, settings, and the audit-event log - with cursor pagination and published OpenAPI at `/admin/docs`.
 - M5 server-side RBAC (`AdminIdentity`/`Permission`/`Role`) enforced on every `/admin` endpoint, covered by AC-M5-02 negative tests (`tests/integration/test_admin_rbac.py`).
 - M5 admin list endpoints hold p95 < 300 ms over 10k synthetic requests (`tests/integration/test_admin_perf.py`, AC-M5-01).
+- M6 Admin API expansions for server-side dashboard aggregates, top users, detection estimates, false-positive rate, team budgets and allowed models, SSO and vault settings, and write-only provider credentials.
+- M6 Next.js dashboard pages for overview, request exploration, blocked findings, policy management, access and budgets, and settings.
+- M6 Playwright coverage for AC-M6-01 through AC-M6-05 and the per-finding false-positive reporting regression.
 
 ### Changed
 - Gateway decision objects and responses now carry the active policy version (`X-Frostglass-Policy-Version`).
 - New teams default to shadow mode from the policy store.
 - Application factory `create_app()` now builds all per-app dependencies fresh (including the audit store and recorder on `app.state`) and each route module exposes a `create_router(...)` factory returning a new router bound to that app instance.
+- CI lint checks use `ruff check --output-format=github .` so violations appear as GitHub annotations.
 
 ### Fixed
 - **Router isolation:** removed module-level router singletons that carried request-handling state across app instances. Regression test: `tests/integration/test_detection_lifecycle.py::test_app_instances_use_their_own_policy_databases`.
 - **Per-entity-type decisions:** each finding is decided independently on its own entity type and confidence. Regression test: `tests/integration/test_per_finding_decisions.py::test_same_type_findings_get_independent_decisions`.
 - **CI memory-pressure runner kill:** share one module-scoped app/engine across the extraction-security tests (commit `ea6eaac`). Test-side only; production lifecycle tracked in issue #22.
+- M6 blocked-finding false-positive reporting now identifies and updates the selected finding only. `FindingView` includes the required finding ID throughout the Admin API and dashboard.
 
 ### Security
 - **Extraction leak paths closed.** The gateway extractor scans every prompt-bearing field. Regression-tested in `tests/integration/test_extraction_security.py`: OpenAI `/v1/embeddings` `input`; Anthropic `/v1/messages` `tool_use.input` and `tool_result.content`; tool/function JSON-schema `default` values.

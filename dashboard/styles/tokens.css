@@ -1,10 +1,27 @@
 :root {
-  --fg-canvas: #0F1419;
-  --fg-raised: #171D24;
-  --fg-hairline: #232B34;
-  --fg-text: #E4E9EE;
-  --fg-muted: #8A97A5;
-  --fg-blocked: #E5484D;
-  --fg-masked: #E8A33D;
-  --fg-shadow: #4C8DF6;
+  /* dark by default (H.6.1) */
+  --fg-canvas: #0f1419;
+  --fg-raised: #171d24;
+  --fg-hairline: #232b34;
+  --fg-text: #e4e9ee;
+  --fg-muted: #8a97a5;
+
+  /* signal - the ONLY colours in the interface */
+  --fg-blocked: #e5484d;
+  --fg-masked: #e8a33d;
+  --fg-shadow: #4c8df6;
+  /* "allowed" has no colour - it is --fg-muted */
+}
+
+:root[data-theme="light"] {
+  --fg-canvas: #f7f9fb;
+  --fg-raised: #ffffff;
+  --fg-hairline: #d9e0e7;
+  --fg-text: #1a2229;
+  --fg-muted: #5c6a78;
+
+  /* signal colours are contrast-checked against the light canvas */
+  --fg-blocked: #c3352b;
+  --fg-masked: #b9761a;
+  --fg-shadow: #2f6fd0;
 }

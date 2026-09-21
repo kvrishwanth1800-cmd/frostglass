@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install '.[dev]'
-      - run: ruff check .
+      - run: ruff check --output-format=github .
       - run: ruff format --check .
 
   typecheck:
