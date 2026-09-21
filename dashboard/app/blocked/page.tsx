@@ -115,7 +115,7 @@ function BlockedDrawer({
   const { session } = useSession();
   const [trace, setTrace] = useState<FindingView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busyFindingId, setBusyFindingId] = useState<string | null>(null);
   const mayReport = can(session.role, "report_false_positive");
 
   useEffect(() => {
@@ -141,17 +141,22 @@ function BlockedDrawer({
     };
   }, [request, session.token]);
 
-  const reportFalsePositive = async () => {
-    if (!request) return;
-    setBusy(true);
+  const reportFalsePositive = async (findingId: string) => {
+    setBusyFindingId(findingId);
     try {
-      await api.reportFalsePositive(session.token, request.id);
+      await api.reportFalsePositive(session.token, findingId);
+      setTrace((current) =>
+        current
+          ? current.map((finding) =>
+              finding.id === findingId ? { ...finding, false_positive_reported: true } : finding,
+            )
+          : current,
+      );
       onChanged();
-      onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not report false positive.");
     } finally {
-      setBusy(false);
+      setBusyFindingId(null);
     }
   };
 
@@ -176,8 +181,8 @@ function BlockedDrawer({
             <p className="text-sm text-muted">No findings recorded.</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {trace.map((finding, index) => (
-                <li key={index} className="rounded border border-hairline p-3 text-sm">
+              {trace.map((finding) => (
+                <li key={finding.id} className="rounded border border-hairline p-3 text-sm">
                   <div className="flex items-center justify-between">
                     <span>{finding.entity_type}</span>
                     {finding.false_positive_reported ? (
@@ -192,16 +197,24 @@ function BlockedDrawer({
                       <span>rule <span className="font-mono">{finding.matched_rule_id}</span></span>
                     ) : null}
                   </div>
+                  {mayReport && !finding.false_positive_reported ? (
+                    <div className="mt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => reportFalsePositive(finding.id)}
+                        disabled={busyFindingId === finding.id}
+                      >
+                        {busyFindingId === finding.id ? "Reporting..." : "Mark false positive"}
+                      </Button>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
 
-          {mayReport ? (
-            <Button variant="default" onClick={reportFalsePositive} disabled={busy}>
-              {busy ? "Reporting..." : "Mark false positive"}
-            </Button>
-          ) : (
+          {mayReport ? null : (
             <p className="text-xs text-muted">Your role cannot report false positives.</p>
           )}
         </div>
