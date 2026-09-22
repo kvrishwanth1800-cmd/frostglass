@@ -19,7 +19,10 @@ def test_dictionary_crud_csv_paste_and_immediate_match() -> None:
     term = store.terms("tenant-a", dictionary_id)[0]
     updated = store.update_term("tenant-a", dictionary_id, term.id, "Aurora-Prime", "PROJECT")
     assert updated.replacement == "PROJECT"
-    assert [item.term for item in store.match("tenant-a", "send Aurora-Prime to Cascade")] == ["Aurora-Prime", "Cascade"]
+    assert [item.term for item in store.match("tenant-a", "send Aurora-Prime to Cascade")] == [
+        "Aurora-Prime",
+        "Cascade",
+    ]
     store.remove_term("tenant-a", dictionary_id, term.id)
     assert "Aurora-Prime" not in [item.term for item in store.terms("tenant-a", dictionary_id)]
 
@@ -30,10 +33,19 @@ def test_regex_rejects_invalid_or_redos_prone_patterns(pattern: str) -> None:
         validate_pattern(pattern)
 
 
+def test_re2_bounded_match_for_backtracking_adversarial_shapes() -> None:
+    sample = "a" * 50_000 + "!"
+    for pattern in (r"(a+)+$", r"(a|aa)+$", r"a*a*a*a*a*!$"):
+        result = test_pattern(pattern, sample)
+        assert result.matched is False
+        assert result.elapsed_ms < 1_000
+
+
 def test_regex_safe_test_returns_match_spans() -> None:
     result = test_pattern(r"AKIA[0-9A-Z]{16}", "key AKIA1234567890ABCDEF")
     assert result.matched is True
     assert result.spans == [(4, 24)]
+    assert result.elapsed_ms < 1_000
 
 
 def test_suggestions_generate_all_four_m7_kinds() -> None:

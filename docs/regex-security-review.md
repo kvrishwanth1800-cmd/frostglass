@@ -1,20 +1,21 @@
-# M7 custom regex safety review required
+# M7 custom regex safety control
 
-## Status
+## Decision
 
-Blocked before custom recognizers can be wired into the live Admin API or saved by operators.
+M7 custom recognizers use `google-re2`, imported as `re2`, for the custom-recognizer path only. Google RE2 uses a non-backtracking engine and gives linear-time matching for supported patterns.
 
-## Implemented isolated control
+Existing `re` usage in detection, masking, and other code paths is unchanged.
 
-`frostglass/admin/custom_recognizers.py` applies a conservative syntax filter before Python `re.compile`:
+## Defence in depth
 
-- Limits a pattern to 256 characters.
-- Rejects invalid syntax.
-- Rejects backreferences and lookarounds.
-- Rejects nested quantifiers and quantified alternation.
-- Rejects unbounded wildcard repetition and unbounded ranges.
+`frostglass/admin/custom_recognizers.py` retains a conservative pre-compile filter. It rejects:
 
-The current tests reject these concrete patterns:
+- Invalid syntax.
+- Backreferences and lookarounds, which RE2 does not support.
+- Nested quantifiers and quantified alternation.
+- Unbounded wildcard repetition and unbounded ranges.
+
+The test suite rejects the following patterns before they reach RE2:
 
 ```text
 (
@@ -25,18 +26,12 @@ The current tests reject these concrete patterns:
 (foo)\1
 ```
 
-A bounded token pattern such as `AKIA[0-9A-Z]{16}` is accepted and reports match spans.
+The suite also evaluates the adversarial nested-quantifier and quantified-alternation shapes with a 50,001-character non-match and asserts a bounded completion time. RE2, rather than a timing assertion, is the safety guarantee.
 
-## Why this is not approved
+## Supported recognizer syntax
 
-Python's `re` engine has no reliable per-match timeout. The syntax filter is a defensive heuristic, not a proof that every accepted pattern has bounded execution time. It can also reject safe patterns and may miss a pathological accepted pattern.
+The M7 feature needs character classes, anchors, grouping, fixed or bounded quantifiers, and literal tokens. These are supported by RE2. Lookarounds and backreferences are intentionally unsupported and are not required by Part H.
 
-## Required security decision
+## Remaining review
 
-Do not expose custom-recognizer save or enable operations until review chooses one of these controls:
-
-1. A dedicated regex engine with a hard execution limit and a documented supported syntax.
-2. Isolated, resource-limited regex evaluation outside request handling.
-3. A smaller, formally constrained recognizer grammar with a documented complexity bound.
-
-The M7 PR must remain open for this security review.
+The M7 PR remains open for review of dependency provenance and the final live routing. The previous hard stop on a standard-library `re` implementation is cleared.

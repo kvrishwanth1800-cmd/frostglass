@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
   "cryptography>=43.0",
   "fastapi>=0.115",
+  "google-re2>=1.1",
   "phonenumbers>=8.13",
   "presidio-analyzer>=2.2",
   "pydantic-settings>=2.6",
@@ -51,7 +52,7 @@ strict = true
 files = ["frostglass/detection", "frostglass/masking", "frostglass/policy"]
 
 [[tool.mypy.overrides]]
-module = ["ahocorasick", "yaml"]
+module = ["ahocorasick", "re2", "yaml"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
