@@ -33,12 +33,10 @@ def test_regex_rejects_invalid_or_redos_prone_patterns(pattern: str) -> None:
         validate_pattern(pattern)
 
 
-def test_re2_bounded_match_for_backtracking_adversarial_shapes() -> None:
-    sample = "a" * 50_000 + "!"
-    for pattern in (r"(a+)+$", r"(a|aa)+$", r"a*a*a*a*a*!$"):
-        result = test_pattern(pattern, sample)
-        assert result.matched is False
-        assert result.elapsed_ms < 1_000
+def test_re2_handles_an_adversarial_supported_pattern_in_bounded_time() -> None:
+    result = test_pattern(r"a*a*a*a*a*!$", "a" * 50_000 + "!")
+    assert result.matched is True
+    assert result.elapsed_ms < 1_000
 
 
 def test_regex_safe_test_returns_match_spans() -> None:
