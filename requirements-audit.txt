@@ -3,5 +3,5 @@ phonenumbers>=8.13
 presidio-analyzer>=2.2
 pydantic-settings>=2.6
 pyahocorasick>=2.1
-spacy>=3.7,<3.8
+spacy>=3.7,<3.9
 uvicorn[standard]>=0.32
